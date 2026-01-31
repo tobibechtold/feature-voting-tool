@@ -80,7 +80,8 @@ export default function AppFeedback() {
     );
   };
 
-  if (appLoading) {
+  // Only show full-page skeleton when loading AND no cached data
+  if (appLoading && !app) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -223,7 +224,7 @@ export default function AppFeedback() {
 
           {/* Feedback List */}
           <div className="space-y-4">
-            {feedbackLoading ? (
+            {feedbackLoading && !feedback ? (
               [1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-32 w-full" />
               ))

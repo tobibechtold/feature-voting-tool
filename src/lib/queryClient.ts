@@ -6,6 +6,7 @@ function createQueryClient() {
     defaultOptions: {
       queries: {
         staleTime: 1000 * 60, // 1 minute
+        gcTime: 1000 * 60 * 10, // Keep cache for 10 minutes
         retry: 2,
         refetchOnWindowFocus: false,
       },
