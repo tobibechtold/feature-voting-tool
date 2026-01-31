@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Language } from '@/lib/i18n';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AppContextType {
   language: Language;
@@ -7,7 +8,9 @@ interface AppContextType {
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
   isAdmin: boolean;
-  setIsAdmin: (isAdmin: boolean) => void;
+  authLoading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<{ error: Error | null }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -25,7 +28,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin, loading: authLoading, signIn, signOut } = useAuth();
 
   useEffect(() => {
     localStorage.setItem('language', language);
@@ -41,7 +44,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   return (
-    <AppContext.Provider value={{ language, setLanguage, theme, setTheme, isAdmin, setIsAdmin }}>
+    <AppContext.Provider value={{ 
+      language, 
+      setLanguage, 
+      theme, 
+      setTheme, 
+      isAdmin, 
+      authLoading,
+      signIn,
+      signOut,
+    }}>
       {children}
     </AppContext.Provider>
   );

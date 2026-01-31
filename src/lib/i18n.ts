@@ -67,6 +67,9 @@ export const translations = {
     appDescription: 'Description',
     confirmDelete: 'Are you sure you want to delete this?',
     changeStatus: 'Change Status',
+    appCreated: 'App created successfully',
+    appUpdated: 'App updated successfully',
+    appDeleted: 'App deleted successfully',
     
     // Auth
     email: 'Email',
@@ -149,6 +152,9 @@ export const translations = {
     appDescription: 'Beschreibung',
     confirmDelete: 'Möchtest du das wirklich löschen?',
     changeStatus: 'Status ändern',
+    appCreated: 'App erfolgreich erstellt',
+    appUpdated: 'App erfolgreich aktualisiert',
+    appDeleted: 'App erfolgreich gelöscht',
     
     // Auth
     email: 'E-Mail',
