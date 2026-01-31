@@ -1,75 +1,63 @@
 
-# Fix Admin Login Redirect Issue
+# Update Feature Request Text and Add Welcoming Message
 
-## Problem Analysis
-
-After a successful login, users are being redirected back to the login page. This is caused by a **race condition** in the authentication flow:
-
-1. User submits login credentials on `/login`
-2. `signIn()` completes successfully
-3. `navigate('/admin')` is called immediately
-4. Admin page mounts and reads `isAdmin` which is still `false`
-5. Admin page redirects to `/login` before the role check completes
-
-The issue is that the `signIn` function in `useAuth.ts` only waits for Supabase authentication to complete, but doesn't wait for the admin role check that happens asynchronously in `onAuthStateChange`.
-
----
-
-## Solution
-
-Modify the `signIn` function in `useAuth.ts` to wait for the admin role check to complete after successful authentication. This ensures that when navigation to `/admin` happens, the `isAdmin` state is already set correctly.
+## Overview
+Update the German translation for "Request Feature" and add encouraging dialog descriptions that invite users to share their ideas and emphasize that their feedback matters.
 
 ---
 
 ## Changes Required
 
-### File: `src/hooks/useAuth.ts`
+### 1. Update Translations (`src/lib/i18n.ts`)
 
-**Current behavior:**
-- `signIn` only returns after Supabase auth completes
-- Admin role check happens asynchronously via `onAuthStateChange` (fire-and-forget)
+**Change German "createFeature" translation:**
+- Line 152: Change `'Feature anfragen'` to `'Feature vorschlagen'`
 
-**New behavior:**
-- After successful authentication, explicitly wait for the admin role check
-- Return the result including whether the user is an admin
+**Add new translation keys for dialog descriptions:**
+
+| Key | English | German |
+|-----|---------|--------|
+| `featureDialogDescription` | Your ideas shape this app! Share what matters to you and help decide the direction we take together. | Deine Ideen formen diese App! Teile mit, was dir wichtig ist und entscheide mit, in welche Richtung wir gemeinsam gehen. |
+| `bugDialogDescription` | Help us improve by reporting issues you've encountered. Your feedback makes a difference! | Hilf uns, die App zu verbessern, indem du Probleme meldest. Dein Feedback macht den Unterschied! |
+
+---
+
+### 2. Update CreateFeedbackDialog (`src/components/CreateFeedbackDialog.tsx`)
+
+**Line 108-112**: Replace hardcoded English description with translation keys:
 
 ```typescript
-// Updated signIn function
-const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  
-  // If login succeeded, wait for the admin role check
-  if (!error && data.user) {
-    const adminStatus = await checkAdminRole(data.user.id);
-    setIsAdmin(adminStatus);
-  }
-  
-  return { error };
-};
+// Before
+<DialogDescription>
+  {isFeature
+    ? 'Share your idea to improve this app'
+    : 'Report an issue you encountered'}
+</DialogDescription>
+
+// After
+<DialogDescription>
+  {isFeature
+    ? t('featureDialogDescription')
+    : t('bugDialogDescription')}
+</DialogDescription>
 ```
 
-This also requires moving the `checkAdminRole` helper function outside the `useEffect` so it can be called from `signIn`.
-
 ---
 
-## Summary
+## Summary of Changes
 
-| What | Change |
+| File | Change |
 |------|--------|
-| Problem | Race condition: navigation happens before `isAdmin` is set |
-| Root cause | `signIn` doesn't wait for role check |
-| Fix | Make `signIn` explicitly await the admin role check after auth |
-| Files changed | `src/hooks/useAuth.ts` |
+| `src/lib/i18n.ts` | Update German `createFeature` to "Feature vorschlagen" |
+| `src/lib/i18n.ts` | Add `featureDialogDescription` (EN + DE) |
+| `src/lib/i18n.ts` | Add `bugDialogDescription` (EN + DE) |
+| `src/components/CreateFeedbackDialog.tsx` | Use translation keys for dialog descriptions |
 
 ---
 
-## Technical Details
+## Result
 
-The refactored `useAuth.ts` will:
-1. Extract `checkAdminRole` to a stable reference (using `useCallback` or defined outside effect)
-2. Have `signIn` call this function directly and await it
-3. Set `isAdmin` state before returning from `signIn`
-4. Keep the `onAuthStateChange` listener for handling session restoration and sign-out events
+When users open the "Feature vorschlagen" dialog, they'll see a warm, inviting message that:
+- Emphasizes their ideas matter
+- Shows you're listening to their feedback
+- Encourages them to help shape the app's direction
