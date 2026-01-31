@@ -6,6 +6,28 @@ import { promiseWithTimeout } from '@/lib/queryCache';
 const AUTH_TIMEOUT = 6000; // 6 seconds for auth operations
 const ROLE_TIMEOUT = 5000; // 5 seconds for role check
 
+// Helper to check admin role with timeout - defined outside component for reuse
+const checkAdminRole = async (userId: string): Promise<boolean> => {
+  try {
+    const roleCheck = async () => {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      return !!data;
+    };
+
+    return await promiseWithTimeout(roleCheck(), ROLE_TIMEOUT);
+  } catch (error) {
+    console.warn('[useAuth] Admin role check failed/timed out:', error);
+    // Secure default: if role check fails, user is not admin
+    return false;
+  }
+};
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -14,28 +36,6 @@ export function useAuth() {
 
   useEffect(() => {
     let isMounted = true;
-
-    // Helper to check admin role with timeout
-    const checkAdminRole = async (userId: string): Promise<boolean> => {
-      try {
-        const roleCheck = async () => {
-          const { data } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', userId)
-            .eq('role', 'admin')
-            .maybeSingle();
-          
-          return !!data;
-        };
-
-        return await promiseWithTimeout(roleCheck(), ROLE_TIMEOUT);
-      } catch (error) {
-        console.warn('[useAuth] Admin role check failed/timed out:', error);
-        // Secure default: if role check fails, user is not admin
-        return false;
-      }
-    };
 
     // Initialize session FIRST, then set up listener for future changes
     const initSession = async () => {
@@ -108,10 +108,19 @@ export function useAuth() {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    // Wait for admin role check before returning so navigation works correctly
+    if (!error && data.user) {
+      const adminStatus = await checkAdminRole(data.user.id);
+      setIsAdmin(adminStatus);
+      setUser(data.user);
+      setSession(data.session);
+    }
+    
     return { error };
   };
 
