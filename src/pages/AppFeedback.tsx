@@ -26,7 +26,7 @@ export default function AppFeedback() {
   const { t } = useTranslation();
   
   const { data: app, isLoading: appLoading } = useAppData(slug);
-  const { data: feedback, isLoading: feedbackLoading } = useFeedback(app?.id);
+  const { data: feedback, isLoading: feedbackLoading, isPlaceholderData: isFeedbackPlaceholder } = useFeedback(app?.id);
   const { data: votedItems } = useVotedItems();
   const vote = useVote();
   const createFeedback = useCreateFeedback();
@@ -224,7 +224,7 @@ export default function AppFeedback() {
 
           {/* Feedback List */}
           <div className="space-y-4">
-            {feedbackLoading && !feedback ? (
+            {(feedbackLoading || isFeedbackPlaceholder) ? (
               [1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-32 w-full" />
               ))
