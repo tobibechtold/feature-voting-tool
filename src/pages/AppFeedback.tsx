@@ -217,6 +217,11 @@ export default function AppFeedback() {
             </div>
           </div>
 
+          {/* Welcoming message */}
+          <p className="text-muted-foreground mb-6 animate-fade-in" style={{ animationDelay: '50ms' }}>
+            {t('feedbackWelcomeMessage')}
+          </p>
+
           {/* Filters */}
           <div className="flex items-center gap-4 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
             <Tabs value={filterType} onValueChange={(v) => setFilterType(v as FilterType)}>
