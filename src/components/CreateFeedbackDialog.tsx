@@ -107,8 +107,8 @@ export function CreateFeedbackDialog({
               </DialogTitle>
               <DialogDescription>
                 {isFeature
-                  ? 'Share your idea to improve this app'
-                  : 'Report an issue you encountered'}
+                  ? t('featureDialogDescription')
+                  : t('bugDialogDescription')}
               </DialogDescription>
             </div>
           </div>
