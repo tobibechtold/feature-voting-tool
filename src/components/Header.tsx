@@ -66,7 +66,7 @@ export function Header() {
           </Button>
 
           {/* Admin Controls */}
-          {isAdmin ? (
+          {isAdmin && (
             <>
               <Button variant="ghost" size="icon" asChild>
                 <Link to="/admin">
@@ -78,13 +78,6 @@ export function Header() {
                 {t('logout')}
               </Button>
             </>
-          ) : (
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/login">
-                <LogIn className="h-4 w-4 mr-2" />
-                {t('login')}
-              </Link>
-            </Button>
           )}
         </div>
       </div>
