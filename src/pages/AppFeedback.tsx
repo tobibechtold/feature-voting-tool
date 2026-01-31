@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Lightbulb, Bug, Filter } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Bug, Filter, RefreshCw } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { FeedbackCard } from '@/components/FeedbackCard';
 import { CreateFeedbackDialog } from '@/components/CreateFeedbackDialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { OfflineState } from '@/components/OfflineState';
+import { QueryErrorState } from '@/components/QueryErrorState';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,8 +27,8 @@ export default function AppFeedback() {
   const { slug } = useParams<{ slug: string }>();
   const { t } = useTranslation();
   
-  const { data: app, isLoading: appLoading } = useAppData(slug);
-  const { data: feedback, isLoading: feedbackLoading, isPlaceholderData: isFeedbackPlaceholder } = useFeedback(app?.id);
+  const { data: app, isLoading: appLoading, error: appError, fetchStatus: appFetchStatus, refetch: refetchApp, isRefetching: isRefetchingApp } = useAppData(slug);
+  const { data: feedback, isLoading: feedbackLoading, error: feedbackError, fetchStatus: feedbackFetchStatus, refetch: refetchFeedback, isRefetching: isRefetchingFeedback, isFetching: isFeedbackFetching } = useFeedback(app?.id);
   const { data: votedItems } = useVotedItems();
   const vote = useVote();
   const createFeedback = useCreateFeedback();
@@ -80,6 +82,12 @@ export default function AppFeedback() {
     );
   };
 
+  // Check for offline/paused state
+  const isAppPaused = appFetchStatus === 'paused';
+  const isFeedbackPaused = feedbackFetchStatus === 'paused';
+  const hasFeedbackData = feedback && feedback.length > 0;
+  const showFeedbackSkeleton = feedbackLoading && !hasFeedbackData;
+
   // Only show full-page skeleton when loading AND no cached data
   if (appLoading && !app) {
     return (
@@ -95,6 +103,34 @@ export default function AppFeedback() {
                 <Skeleton key={i} className="h-32 w-full" />
               ))}
             </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Show offline state for app loading
+  if (isAppPaused && !app) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-12">
+          <div className="max-w-4xl mx-auto">
+            <OfflineState onRetry={() => refetchApp()} isRetrying={isRefetchingApp} />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Show error state for app loading
+  if (appError && !app) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-12">
+          <div className="max-w-4xl mx-auto">
+            <QueryErrorState error={appError as Error} onRetry={() => refetchApp()} isRetrying={isRefetchingApp} />
           </div>
         </main>
       </div>
@@ -222,13 +258,25 @@ export default function AppFeedback() {
             </DropdownMenu>
           </div>
 
+          {/* Show refresh indicator when fetching with existing data */}
+          {isFeedbackFetching && hasFeedbackData && (
+            <div className="flex items-center gap-2 text-muted-foreground mb-4">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Refreshing...</span>
+            </div>
+          )}
+
           {/* Feedback List */}
           <div className="space-y-4">
-            {(feedbackLoading || isFeedbackPlaceholder) ? (
+            {isFeedbackPaused && !hasFeedbackData ? (
+              <OfflineState onRetry={() => refetchFeedback()} isRetrying={isRefetchingFeedback} />
+            ) : feedbackError && !hasFeedbackData ? (
+              <QueryErrorState error={feedbackError as Error} onRetry={() => refetchFeedback()} isRetrying={isRefetchingFeedback} />
+            ) : showFeedbackSkeleton ? (
               [1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-32 w-full" />
               ))
-            ) : (
+            ) : filteredFeedback.length > 0 ? (
               filteredFeedback.map((item, index) => (
                 <div
                   key={item.id}
@@ -243,15 +291,13 @@ export default function AppFeedback() {
                   />
                 </div>
               ))
-            )}
-            
-            {!feedbackLoading && filteredFeedback.length === 0 && (
+            ) : !feedbackLoading ? (
               <div className="text-center py-16">
                 <p className="text-muted-foreground">
                   No feedback yet. Be the first to submit!
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </main>
