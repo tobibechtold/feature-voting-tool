@@ -20,6 +20,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { OfflineState } from '@/components/OfflineState';
+import { QueryErrorState } from '@/components/QueryErrorState';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApp } from '@/contexts/AppContext';
 import { useApp as useAppData } from '@/hooks/useApps';
@@ -37,9 +39,9 @@ export default function FeedbackDetail() {
   const { isAdmin } = useApp();
   const { toast } = useToast();
   
-  const { data: app, isLoading: appLoading } = useAppData(slug);
-  const { data: item, isLoading: itemLoading } = useFeedbackItem(id);
-  const { data: comments, isLoading: commentsLoading } = useComments(id);
+  const { data: app, isLoading: appLoading, error: appError, fetchStatus: appFetchStatus, refetch: refetchApp } = useAppData(slug);
+  const { data: item, isLoading: itemLoading, error: itemError, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id);
+  const { data: comments, isLoading: commentsLoading, error: commentsError, fetchStatus: commentsFetchStatus, refetch: refetchComments } = useComments(id);
   const { data: votedItems } = useVotedItems();
   const vote = useVote();
   const updateStatus = useUpdateFeedbackStatus();
@@ -102,7 +104,52 @@ export default function FeedbackDetail() {
     }
   };
 
-  if (appLoading || itemLoading) {
+  // Determine loading/error states
+  const isPaused = appFetchStatus === 'paused' || itemFetchStatus === 'paused';
+  const hasError = appError || itemError;
+  const isLoadingWithNoData = (appLoading || itemLoading) && !app && !item;
+
+  // Handle offline/paused state
+  if (isPaused) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-8">
+          <div className="max-w-3xl mx-auto">
+            <OfflineState 
+              onRetry={() => {
+                refetchApp();
+                refetchItem();
+              }} 
+            />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (hasError && !app && !item) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-8">
+          <div className="max-w-3xl mx-auto">
+            <QueryErrorState 
+              error={appError || itemError} 
+              onRetry={() => {
+                refetchApp();
+                refetchItem();
+              }} 
+            />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Show skeleton only when loading with no data
+  if (isLoadingWithNoData) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -132,6 +179,11 @@ export default function FeedbackDetail() {
       </div>
     );
   }
+
+  // Determine comments state
+  const isCommentsPaused = commentsFetchStatus === 'paused';
+  const commentsHasError = commentsError && !comments;
+  const commentsShowSkeleton = commentsLoading && !comments;
 
   return (
     <div className="min-h-screen bg-background">
@@ -216,7 +268,11 @@ export default function FeedbackDetail() {
             </h2>
             
             <div className="space-y-4">
-              {commentsLoading ? (
+              {isCommentsPaused ? (
+                <OfflineState onRetry={refetchComments} />
+              ) : commentsHasError ? (
+                <QueryErrorState error={commentsError} onRetry={refetchComments} />
+              ) : commentsShowSkeleton ? (
                 [1, 2].map((i) => (
                   <Skeleton key={i} className="h-24 w-full" />
                 ))
@@ -259,7 +315,7 @@ export default function FeedbackDetail() {
                 ))
               )}
               
-              {!commentsLoading && (!comments || comments.length === 0) && (
+              {!commentsLoading && !isCommentsPaused && !commentsHasError && (!comments || comments.length === 0) && (
                 <p className="text-center text-muted-foreground py-8">
                   {t('noComments')}
                 </p>

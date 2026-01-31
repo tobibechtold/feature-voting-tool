@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, publicSupabase } from '@/integrations/supabase/client';
 import { App } from '@/types';
-import { getCachedData, setCachedData, createTimeoutSignal, TimeoutError } from '@/lib/queryCache';
+import { getCachedData, setCachedData, promiseWithTimeout, TimeoutError } from '@/lib/queryCache';
 
 const APPS_CACHE_KEY = 'apps';
 const REQUEST_TIMEOUT = 10000; // 10 seconds
@@ -13,16 +13,15 @@ export function useApps() {
   return useQuery({
     queryKey: ['apps'],
     queryFn: async () => {
-      const { signal, cleanup } = createTimeoutSignal(REQUEST_TIMEOUT);
+      const controller = new AbortController();
       
-      try {
-        const { data, error } = await supabase
+      // Wrap the entire query in promiseWithTimeout to guarantee settlement
+      const fetchApps = async () => {
+        const { data, error } = await publicSupabase
           .from('apps')
           .select('*')
           .order('created_at', { ascending: false })
-          .abortSignal(signal);
-        
-        cleanup();
+          .abortSignal(controller.signal);
         
         if (error) {
           console.error('[useApps] Error:', error);
@@ -35,13 +34,9 @@ export function useApps() {
         setCachedData(APPS_CACHE_KEY, apps);
         
         return apps;
-      } catch (err) {
-        cleanup();
-        if (signal.aborted) {
-          throw new TimeoutError();
-        }
-        throw err;
-      }
+      };
+
+      return promiseWithTimeout(fetchApps(), REQUEST_TIMEOUT, controller);
     },
     // Use cached data as initialData for instant display
     initialData: cached?.data,
@@ -55,29 +50,22 @@ export function useApp(slug: string | undefined) {
     queryFn: async () => {
       if (!slug) return null;
       
-      const { signal, cleanup } = createTimeoutSignal(REQUEST_TIMEOUT);
+      const controller = new AbortController();
       
-      try {
-        // Build query with abort signal before maybeSingle()
-        const query = supabase
+      const fetchApp = async () => {
+        const query = publicSupabase
           .from('apps')
           .select('*')
           .eq('slug', slug)
-          .abortSignal(signal);
+          .abortSignal(controller.signal);
         
         const { data, error } = await query.maybeSingle();
         
-        cleanup();
-        
         if (error) throw error;
         return data as App | null;
-      } catch (err) {
-        cleanup();
-        if (signal.aborted) {
-          throw new TimeoutError();
-        }
-        throw err;
-      }
+      };
+
+      return promiseWithTimeout(fetchApp(), REQUEST_TIMEOUT, controller);
     },
     enabled: !!slug,
   });
