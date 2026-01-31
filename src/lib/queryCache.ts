@@ -67,3 +67,24 @@ export class TimeoutError extends Error {
     this.name = 'TimeoutError';
   }
 }
+
+// Deterministic timeout wrapper - forces promise to settle even if Supabase hangs upstream
+export function promiseWithTimeout<T>(promise: Promise<T>, ms: number, abortController?: AbortController): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      // Best-effort cancellation
+      abortController?.abort();
+      reject(new TimeoutError());
+    }, ms);
+
+    promise
+      .then((result) => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
