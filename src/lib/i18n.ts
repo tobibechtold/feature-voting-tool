@@ -49,6 +49,8 @@ export const translations = {
     titlePlaceholder: 'Short, descriptive title',
     description: 'Description',
     descriptionPlaceholder: 'Describe your request in detail...',
+    featureDialogDescription: 'Your ideas shape this app! Share what matters to you and help decide the direction we take together.',
+    bugDialogDescription: 'Help us improve by reporting issues you\'ve encountered. Your feedback makes a difference!',
     submitSuccess: 'Successfully submitted!',
     
     // Detail view
@@ -149,12 +151,14 @@ export const translations = {
     voted: 'Abgestimmt',
     
     // Create feedback
-    createFeature: 'Feature anfragen',
+    createFeature: 'Feature vorschlagen',
     createBug: 'Bug melden',
     title: 'Titel',
     titlePlaceholder: 'Kurzer, beschreibender Titel',
     description: 'Beschreibung',
     descriptionPlaceholder: 'Beschreibe deine Anfrage im Detail...',
+    featureDialogDescription: 'Deine Ideen formen diese App! Teile mit, was dir wichtig ist und entscheide mit, in welche Richtung wir gemeinsam gehen.',
+    bugDialogDescription: 'Hilf uns, die App zu verbessern, indem du Probleme meldest. Dein Feedback macht den Unterschied!',
     submitSuccess: 'Erfolgreich eingereicht!',
     
     // Detail view
