@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setIsAdmin } = useApp();
+  const { signIn } = useApp();
   const { t } = useTranslation();
   const { toast } = useToast();
   
@@ -24,20 +24,19 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
     
-    // TODO: Replace with Supabase auth when connected
-    // For now, simulate login
-    setTimeout(() => {
-      if (email && password) {
-        setIsAdmin(true);
-        navigate('/admin');
-      } else {
-        toast({
-          title: t('loginError'),
-          variant: 'destructive',
-        });
-      }
-      setIsLoading(false);
-    }, 500);
+    const { error } = await signIn(email, password);
+    
+    if (error) {
+      toast({
+        title: t('loginError'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      navigate('/admin');
+    }
+    
+    setIsLoading(false);
   };
 
   return (
@@ -93,10 +92,6 @@ export default function Login() {
                   {isLoading ? t('loading') : t('login')}
                 </Button>
               </form>
-              
-              <p className="text-sm text-muted-foreground text-center mt-6">
-                Note: Connect Supabase for real authentication
-              </p>
             </CardContent>
           </Card>
         </div>
