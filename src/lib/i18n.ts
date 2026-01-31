@@ -94,6 +94,10 @@ export const translations = {
     // App logo
     appLogo: 'App Logo',
     uploadLogo: 'Upload Logo',
+    
+    // Error states
+    loadError: 'Failed to load',
+    retry: 'Retry',
     removeLogo: 'Remove Logo',
     logoUploaded: 'Logo uploaded successfully',
   },
@@ -190,6 +194,10 @@ export const translations = {
     // App logo
     appLogo: 'App-Logo',
     uploadLogo: 'Logo hochladen',
+    
+    // Error states
+    loadError: 'Laden fehlgeschlagen',
+    retry: 'Erneut versuchen',
     removeLogo: 'Logo entfernen',
     logoUploaded: 'Logo erfolgreich hochgeladen',
   },

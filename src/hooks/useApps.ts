@@ -6,7 +6,6 @@ export function useApps() {
   return useQuery({
     queryKey: ['apps'],
     queryFn: async () => {
-      console.log('[useApps] Fetching apps...');
       const { data, error } = await supabase
         .from('apps')
         .select('*')
@@ -16,7 +15,6 @@ export function useApps() {
         console.error('[useApps] Error:', error);
         throw error;
       }
-      console.log('[useApps] Data:', data);
       return (data || []) as App[];
     },
   });
@@ -86,6 +84,47 @@ export function useDeleteApp() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      // Try RPC first (atomic cascade delete)
+      const { error: rpcError } = await (supabase.rpc as Function)('delete_app_cascade', {
+        p_app_id: id,
+      });
+
+      if (!rpcError) {
+        return;
+      }
+
+      // Fallback: manual cascade delete
+      console.warn('delete_app_cascade RPC not available, using fallback:', rpcError.message);
+
+      // Get all feedback IDs for this app
+      const { data: feedbackItems } = await supabase
+        .from('feedback')
+        .select('id')
+        .eq('app_id', id);
+
+      if (feedbackItems && feedbackItems.length > 0) {
+        const feedbackIds = (feedbackItems as Array<{ id: string }>).map((f) => f.id);
+
+        // Delete all votes for these feedback items
+        await supabase
+          .from('votes')
+          .delete()
+          .in('feedback_id', feedbackIds);
+
+        // Delete all comments for these feedback items
+        await supabase
+          .from('comments')
+          .delete()
+          .in('feedback_id', feedbackIds);
+
+        // Delete all feedback items
+        await supabase
+          .from('feedback')
+          .delete()
+          .eq('app_id', id);
+      }
+
+      // Finally delete the app
       const { error } = await supabase
         .from('apps')
         .delete()
@@ -95,6 +134,7 @@ export function useDeleteApp() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['apps'] });
+      queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
   });
 }
