@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, publicSupabase } from '@/integrations/supabase/client';
 import { FeedbackItem, FeedbackStatus, FeedbackType } from '@/types';
 import { getVoterId } from '@/lib/mockData';
-import { getCachedData, setCachedData, createTimeoutSignal, TimeoutError } from '@/lib/queryCache';
+import { getCachedData, setCachedData, promiseWithTimeout, TimeoutError } from '@/lib/queryCache';
 
 const REQUEST_TIMEOUT = 10000; // 10 seconds
 
@@ -15,17 +15,15 @@ export function useFeedback(appId: string | undefined) {
     queryFn: async () => {
       if (!appId) return [];
       
-      const { signal, cleanup } = createTimeoutSignal(REQUEST_TIMEOUT);
+      const controller = new AbortController();
       
-      try {
-        const { data, error } = await supabase
+      const fetchFeedback = async () => {
+        const { data, error } = await publicSupabase
           .from('feedback')
           .select('*')
           .eq('app_id', appId)
           .order('vote_count', { ascending: false })
-          .abortSignal(signal);
-        
-        cleanup();
+          .abortSignal(controller.signal);
         
         if (error) throw error;
         
@@ -35,13 +33,9 @@ export function useFeedback(appId: string | undefined) {
         setCachedData(cacheKey, feedback);
         
         return feedback;
-      } catch (err) {
-        cleanup();
-        if (signal.aborted) {
-          throw new TimeoutError();
-        }
-        throw err;
-      }
+      };
+
+      return promiseWithTimeout(fetchFeedback(), REQUEST_TIMEOUT, controller);
     },
     enabled: !!appId,
     // Use cached data for instant display
@@ -55,14 +49,22 @@ export function useFeedbackItem(id: string | undefined) {
     queryKey: ['feedback', 'item', id],
     queryFn: async () => {
       if (!id) return null;
-      const { data, error } = await supabase
-        .from('feedback')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
       
-      if (error) throw error;
-      return data as FeedbackItem | null;
+      const controller = new AbortController();
+      
+      const fetchItem = async () => {
+        const { data, error } = await publicSupabase
+          .from('feedback')
+          .select('*')
+          .eq('id', id)
+          .abortSignal(controller.signal)
+          .maybeSingle();
+        
+        if (error) throw error;
+        return data as FeedbackItem | null;
+      };
+
+      return promiseWithTimeout(fetchItem(), REQUEST_TIMEOUT, controller);
     },
     enabled: !!id,
   });
@@ -126,14 +128,21 @@ export function useVotedItems() {
   return useQuery({
     queryKey: ['votes', voterId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('votes')
-        .select('feedback_id')
-        .eq('voter_id', voterId);
+      const controller = new AbortController();
       
-      if (error) throw error;
-      const votes = (data || []) as Array<{ feedback_id: string }>;
-      return new Set(votes.map((v) => v.feedback_id));
+      const fetchVotes = async () => {
+        const { data, error } = await publicSupabase
+          .from('votes')
+          .select('feedback_id')
+          .eq('voter_id', voterId)
+          .abortSignal(controller.signal);
+        
+        if (error) throw error;
+        const votes = (data || []) as Array<{ feedback_id: string }>;
+        return new Set(votes.map((v) => v.feedback_id));
+      };
+
+      return promiseWithTimeout(fetchVotes(), REQUEST_TIMEOUT, controller);
     },
   });
 }

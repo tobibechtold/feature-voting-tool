@@ -34,6 +34,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { OfflineState } from '@/components/OfflineState';
+import { QueryErrorState } from '@/components/QueryErrorState';
 import { useApp } from '@/contexts/AppContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApps, useCreateApp, useUpdateApp, useDeleteApp } from '@/hooks/useApps';
@@ -46,7 +48,7 @@ export default function Admin() {
   const { t } = useTranslation();
   const { toast } = useToast();
   
-  const { data: apps, isLoading } = useApps();
+  const { data: apps, isLoading, error, fetchStatus, refetch } = useApps();
   const createApp = useCreateApp();
   const updateApp = useUpdateApp();
   const deleteApp = useDeleteApp();
@@ -69,6 +71,7 @@ export default function Admin() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Auth loading - but now it's guaranteed to settle
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -211,6 +214,11 @@ export default function Admin() {
     setDeleteDialogOpen(true);
   };
 
+  // Determine loading/error states
+  const isPaused = fetchStatus === 'paused';
+  const hasError = error && !apps;
+  const showSkeleton = isLoading && !apps;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -246,7 +254,11 @@ export default function Admin() {
               <CardTitle>{t('manageApps')}</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
+              {isPaused ? (
+                <OfflineState onRetry={refetch} />
+              ) : hasError ? (
+                <QueryErrorState error={error} onRetry={refetch} />
+              ) : showSkeleton ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <Skeleton key={i} className="h-12 w-full" />

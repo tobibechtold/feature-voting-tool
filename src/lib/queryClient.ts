@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
+import { TimeoutError } from '@/lib/queryCache';
 
 // Create a singleton QueryClient that persists across HMR
 function createQueryClient() {
@@ -7,7 +8,11 @@ function createQueryClient() {
       queries: {
         staleTime: 1000 * 60, // 1 minute
         gcTime: 1000 * 60 * 10, // Keep cache for 10 minutes
-        retry: 2,
+        // Don't retry TimeoutError - it means Supabase is hanging
+        retry: (failureCount, error) => {
+          if (error instanceof TimeoutError) return false;
+          return failureCount < 2;
+        },
         refetchOnWindowFocus: false,
       },
     },
