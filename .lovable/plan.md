@@ -1,100 +1,198 @@
 
-# Fix Auth Race Condition Causing Infinite Skeletons
+# Email Notifications with Separate Email and Notification Preferences
 
-## Root Cause Analysis
+## Overview
+Add email notification functionality with **two separate fields**:
+1. **Email address** (optional) - Visible to admins so they can contact users with questions
+2. **Notify me checkbox** - Controls whether to send automatic notifications on status changes/admin comments
 
-The console shows two related issues:
-1. **"Multiple GoTrueClient instances detected"** - Two Supabase clients (`supabase` and `publicSupabase`) share the same storage key, causing interference
-2. **"Admin role check failed/timed out: TimeoutError"** - The role check races with itself due to both `onAuthStateChange` and `initSession` calling it simultaneously
-
-The network logs prove the role check actually succeeds (returns `[{"role":"admin"}]`), but the hook's promise handling gets confused by the race condition.
-
-## The Race Condition Flow (current buggy behavior)
-
-1. Component mounts, `useAuth` effect runs
-2. `onAuthStateChange` is set up - it immediately fires with the restored session
-3. `onAuthStateChange` callback calls `await checkAdminRole()` - blocks until timeout
-4. Meanwhile, `initSession()` also runs and calls `await checkAdminRole()`
-5. Two role checks race, and state updates interleave unpredictably
-6. The 5-second timeout fires before proper resolution
-
-## Solution: Separate Initial Load from Ongoing Changes
-
-Based on the Supabase auth best-practices pattern, we need to restructure `useAuth`:
-
-| Concern | Initial Load | Ongoing Changes |
-|---------|--------------|-----------------|
-| Controls `isLoading` | Yes | No |
-| Awaits role check | Yes, before setting `isLoading=false` | No, fire-and-forget |
-| Source | `getSession()` on mount | `onAuthStateChange` listener |
+This separation allows users to share their email for admin contact purposes without receiving automatic notifications.
 
 ---
 
-## Implementation Plan
+## Requirements
 
-### 1. Fix `src/hooks/useAuth.ts` - Separate initial load from ongoing changes
+### Before Implementation
+You'll need a **Resend** account for sending emails:
+1. Sign up at https://resend.com if you don't have one
+2. Verify your domain at https://resend.com/domains (e.g., `tobibechtold.dev`)
+3. Create an API key at https://resend.com/api-keys
+4. Provide the `RESEND_API_KEY` when prompted
 
-**Key changes:**
-- `onAuthStateChange` should NOT await the role check - it should fire-and-forget
-- `onAuthStateChange` should NOT control `isLoading`
-- Only `initSession` controls `isLoading` and awaits the role check
-- Keep the timeout protection, but remove the race condition that triggers it
+---
+
+## UI Design
+
+### Create Feedback Dialog (updated)
 
 ```text
-BEFORE (race condition):
 ┌─────────────────────────────────────────┐
-│ onAuthStateChange fires immediately     │
-│   → await checkAdminRole() (blocks)     │
+│ Request Feature                         │
 │                                         │
-│ initSession() runs in parallel          │
-│   → await checkAdminRole() (also blocks)│
+│ Title                                   │
+│ ┌─────────────────────────────────────┐ │
+│ │                                     │ │
+│ └─────────────────────────────────────┘ │
 │                                         │
-│ Race condition → timeout before resolve │
-└─────────────────────────────────────────┘
-
-AFTER (fixed):
-┌─────────────────────────────────────────┐
-│ initSession() runs first                │
-│   → await getSession()                  │
-│   → await checkAdminRole()              │
-│   → setLoading(false) in finally        │
+│ Description                             │
+│ ┌─────────────────────────────────────┐ │
+│ │                                     │ │
+│ │                                     │ │
+│ └─────────────────────────────────────┘ │
 │                                         │
-│ onAuthStateChange (for future changes)  │
-│   → update session/user immediately     │
-│   → checkAdminRole() fire-and-forget    │
-│   → does NOT touch isLoading            │
+│ Email (optional)                        │
+│ ┌─────────────────────────────────────┐ │
+│ │ your@email.com                      │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ ☑ Notify me about status changes        │
+│                                         │
+│              [Cancel] [Submit]          │
 └─────────────────────────────────────────┘
 ```
 
-### 2. Fix `src/integrations/supabase/client.ts` - Use different storage keys
+- Email field is always optional
+- Checkbox only shows when email is entered
+- Checkbox checked by default when email is provided
 
-**Key change:**
-- Give `publicSupabase` a different storage key to avoid the "Multiple GoTrueClient" interference
+### Admin View (Feedback Detail)
+- Admin can see submitter email if provided (below the description)
+- Admin can click the email to compose a message
 
+---
+
+## Technical Plan
+
+### 1. Database Changes
+
+Add two columns to the `feedback` table:
+- `submitter_email` (text, nullable) - User's email for admin contact
+- `notify_on_updates` (boolean, default false) - Whether to send notifications
+
+```sql
+ALTER TABLE public.feedback 
+ADD COLUMN submitter_email text,
+ADD COLUMN notify_on_updates boolean DEFAULT false;
+```
+
+### 2. Update TypeScript Types
+
+**src/types/database.ts** - Add to feedback table types:
+- Row: `submitter_email: string | null`, `notify_on_updates: boolean`
+- Insert: `submitter_email?: string | null`, `notify_on_updates?: boolean`
+- Update: `submitter_email?: string | null`, `notify_on_updates?: boolean`
+
+**src/types/index.ts** - Add to FeedbackItem interface:
+- `submitter_email?: string | null`
+- `notify_on_updates?: boolean`
+
+### 3. Update Create Feedback Dialog
+
+**src/components/CreateFeedbackDialog.tsx**:
+- Add `email` state (string)
+- Add `notifyOnUpdates` state (boolean)
+- Add email input field with validation
+- Add checkbox that appears when email is entered
+- Update `onSubmit` signature to include `email?: string`, `notifyOnUpdates?: boolean`
+- Validate email format when provided
+
+### 4. Update Translations
+
+**src/lib/i18n.ts** - Add translations:
 ```typescript
-export const publicSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-    storageKey: 'public-supabase-auth',  // Different key to avoid conflicts
-  },
-});
+// English
+emailOptional: 'Email (optional)',
+emailPlaceholder: 'your@email.com',
+notifyOnUpdates: 'Notify me about status changes and replies',
+submitterEmail: 'Submitter Email',
+
+// German
+emailOptional: 'E-Mail (optional)',
+emailPlaceholder: 'deine@email.de',
+notifyOnUpdates: 'Bei Statusänderungen und Antworten benachrichtigen',
+submitterEmail: 'E-Mail des Einreichers',
+```
+
+### 5. Update Feedback Hooks
+
+**src/hooks/useFeedback.ts** - `useCreateFeedback`:
+- Accept `submitter_email` and `notify_on_updates` in mutation input
+- Pass these to the Supabase insert
+- After creation, call edge function to notify admin (support@tobibechtold.dev)
+
+**src/hooks/useFeedback.ts** - `useUpdateFeedbackStatus`:
+- After status update, fetch feedback to check `submitter_email` and `notify_on_updates`
+- If `notify_on_updates` is true, call edge function
+
+### 6. Update Comments Hook
+
+**src/hooks/useComments.ts** - `useCreateComment`:
+- After admin comment, fetch parent feedback
+- If `notify_on_updates` is true and comment is from admin, call edge function
+
+### 7. Update AppFeedback Page
+
+**src/pages/AppFeedback.tsx** - `handleCreateFeedback`:
+- Pass email and notifyOnUpdates to mutation
+
+### 8. Update FeedbackDetail Page (Admin View)
+
+**src/pages/FeedbackDetail.tsx**:
+- When admin is viewing, show submitter email if available
+- Display as a mailto link for easy contact
+- Show below the feedback description
+
+### 9. Create Edge Function
+
+**supabase/functions/send-notification/index.ts**:
+
+Handles three notification types:
+| Type | Recipient | Subject |
+|------|-----------|---------|
+| `new_feedback` | support@tobibechtold.dev | New {type}: {title} |
+| `status_change` | submitter_email (if notify_on_updates) | Your {type} is now {status} |
+| `admin_comment` | submitter_email (if notify_on_updates) | Admin replied to your {type} |
+
+Uses Resend API for sending emails.
+
+**supabase/config.toml**:
+```toml
+[functions.send-notification]
+verify_jwt = false
 ```
 
 ---
 
-## Summary of Changes
+## Notification Logic Summary
 
-| File | Change |
+| Event | Send to Admin? | Send to User? |
+|-------|----------------|---------------|
+| New feedback created | Always (support@) | Never |
+| Status changed | Never | Only if `notify_on_updates = true` |
+| Admin comments | Never | Only if `notify_on_updates = true` |
+
+---
+
+## File Changes Summary
+
+| File | Action |
 |------|--------|
-| `src/hooks/useAuth.ts` | Restructure to separate initial load from ongoing auth changes; `onAuthStateChange` fires role check without awaiting |
-| `src/integrations/supabase/client.ts` | Add `storageKey` to `publicSupabase` to prevent GoTrueClient conflicts |
+| Database migration | Add `submitter_email` and `notify_on_updates` columns |
+| `src/types/database.ts` | Add new columns to types |
+| `src/types/index.ts` | Add fields to FeedbackItem |
+| `src/lib/i18n.ts` | Add email/notification translations |
+| `src/components/CreateFeedbackDialog.tsx` | Add email input + checkbox |
+| `src/pages/AppFeedback.tsx` | Pass email data to mutation |
+| `src/pages/FeedbackDetail.tsx` | Show email to admin |
+| `src/hooks/useFeedback.ts` | Handle email in create, trigger notifications |
+| `src/hooks/useComments.ts` | Trigger notification on admin comment |
+| `supabase/functions/send-notification/index.ts` | Create edge function |
+| `supabase/config.toml` | Create with function config |
 
-## Expected Outcome
+---
 
-After this fix:
-1. No more "Multiple GoTrueClient" warning (different storage keys)
-2. No more admin role timeout (no race condition)
-3. `isLoading` becomes `false` reliably after initial session + role check
-4. Subsequent logins/logouts update state correctly via `onAuthStateChange`
+## Security Notes
+
+1. **Email never exposed publicly** - Only admins see submitter_email in the UI
+2. **Notifications respect user preference** - Only sent if `notify_on_updates = true`
+3. **Email validation** - Format validated client-side before submission
