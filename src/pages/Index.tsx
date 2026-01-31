@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const Index = () => {
   const { t } = useTranslation();
-  const { data: apps, isLoading, error, refetch, isRefetching } = useApps();
+  const { data: apps, isLoading, isPlaceholderData, error, refetch, isRefetching } = useApps();
 
   return (
     <div className="min-h-screen bg-background">
@@ -30,7 +30,7 @@ const Index = () => {
               onRetry={() => refetch()} 
               isRetrying={isRefetching}
             />
-          ) : isLoading && !apps ? (
+          ) : (isLoading || isPlaceholderData) ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-32 rounded-lg" />
