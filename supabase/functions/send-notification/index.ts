@@ -55,7 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { type, feedback, appName, appSlug, comment }: NotificationRequest = await req.json();
-    const feedbackUrl = `https://app-applaud.lovable.app/app/${appSlug}/feedback/${feedback.id}`;
+    const feedbackUrl = `https://featurevoting.tobibechtold.dev/app/${appSlug}/feedback/${feedback.id}`;
     const feedbackTypeLabel = feedback.type === "feature" ? "Feature Request" : "Bug Report";
 
     let emailResponse;
@@ -63,7 +63,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (type === "new_feedback") {
       // Always notify admin about new feedback
       emailResponse = await sendEmail({
-        from: "Feature Vote <noreply@tobibechtold.dev>",
+        from: "Feature Vote <noreply@featurevoting.tobibechtold.dev>",
         to: ["support@tobibechtold.dev"],
         subject: `New ${feedbackTypeLabel}: ${feedback.title}`,
         html: `
@@ -84,7 +84,7 @@ const handler = async (req: Request): Promise<Response> => {
       const statusLabel = statusLabels[feedback.status || "open"] || feedback.status;
 
       emailResponse = await sendEmail({
-        from: "Feature Vote <noreply@tobibechtold.dev>",
+        from: "Feature Vote <noreply@featurevoting.tobibechtold.dev>",
         to: [feedback.submitter_email],
         subject: `Your ${feedbackTypeLabel.toLowerCase()} is now ${statusLabel}`,
         html: `
@@ -97,7 +97,7 @@ const handler = async (req: Request): Promise<Response> => {
     } else if (type === "admin_comment" && feedback.notify_on_updates && feedback.submitter_email) {
       // Notify user about admin comment (only if they opted in)
       emailResponse = await sendEmail({
-        from: "Feature Vote <noreply@tobibechtold.dev>",
+        from: "Feature Vote <noreply@featurevoting.tobibechtold.dev>",
         to: [feedback.submitter_email],
         subject: `Admin replied to your ${feedbackTypeLabel.toLowerCase()}`,
         html: `
