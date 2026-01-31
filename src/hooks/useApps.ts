@@ -17,6 +17,7 @@ export function useApps() {
       }
       return (data || []) as App[];
     },
+    placeholderData: [], // Show empty state immediately, not skeleton
   });
 }
 

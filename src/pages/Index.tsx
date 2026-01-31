@@ -30,7 +30,7 @@ const Index = () => {
               onRetry={() => refetch()} 
               isRetrying={isRefetching}
             />
-          ) : isLoading ? (
+          ) : isLoading && !apps ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-32 rounded-lg" />
