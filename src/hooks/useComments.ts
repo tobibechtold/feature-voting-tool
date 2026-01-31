@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, publicSupabase } from '@/integrations/supabase/client';
-import { Comment } from '@/types';
-import { promiseWithTimeout, TimeoutError } from '@/lib/queryCache';
+import { Comment, FeedbackItem } from '@/types';
+import { promiseWithTimeout } from '@/lib/queryCache';
+import { sendNotification } from '@/lib/notificationService';
 
 const REQUEST_TIMEOUT = 10000; // 10 seconds
 
@@ -53,11 +54,21 @@ export function useCommentCount(feedbackId: string) {
   });
 }
 
+interface CreateCommentInput {
+  feedback_id: string;
+  content: string;
+  is_admin: boolean;
+  appName?: string;
+  appSlug?: string;
+}
+
 export function useCreateComment() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (comment: { feedback_id: string; content: string; is_admin: boolean }) => {
+    mutationFn: async (input: CreateCommentInput) => {
+      const { appName, appSlug, ...comment } = input;
+      
       const { data, error } = await supabase
         .from('comments')
         .insert(comment as never)
@@ -65,7 +76,37 @@ export function useCreateComment() {
         .single();
       
       if (error) throw error;
-      return data as Comment;
+      const commentData = data as Comment;
+      
+      // If admin commented, send notification to user if they opted in
+      if (comment.is_admin && appName && appSlug) {
+        // Fetch the feedback to check notification preferences
+        const { data: feedbackData } = await publicSupabase
+          .from('feedback')
+          .select('*')
+          .eq('id', comment.feedback_id)
+          .single();
+        
+        const feedback = feedbackData as FeedbackItem | null;
+        
+        if (feedback?.notify_on_updates && feedback?.submitter_email) {
+          sendNotification({
+            type: 'admin_comment',
+            feedback: {
+              id: feedback.id,
+              type: feedback.type,
+              title: feedback.title,
+              submitter_email: feedback.submitter_email,
+              notify_on_updates: feedback.notify_on_updates,
+            },
+            appName,
+            appSlug,
+            comment: comment.content,
+          });
+        }
+      }
+      
+      return commentData;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['comments', data.feedback_id] });

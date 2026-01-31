@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, publicSupabase } from '@/integrations/supabase/client';
 import { FeedbackItem, FeedbackStatus, FeedbackType } from '@/types';
 import { getVoterId } from '@/lib/mockData';
-import { getCachedData, setCachedData, promiseWithTimeout, TimeoutError } from '@/lib/queryCache';
+import { getCachedData, setCachedData, promiseWithTimeout } from '@/lib/queryCache';
+import { sendNotification } from '@/lib/notificationService';
 
 const REQUEST_TIMEOUT = 10000; // 10 seconds
 
@@ -70,12 +71,29 @@ export function useFeedbackItem(id: string | undefined) {
   });
 }
 
+interface CreateFeedbackInput {
+  app_id: string;
+  type: FeedbackType;
+  title: string;
+  description: string;
+  submitter_email?: string;
+  notify_on_updates?: boolean;
+  appName?: string;
+  appSlug?: string;
+}
+
 export function useCreateFeedback() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (feedback: { app_id: string; type: FeedbackType; title: string; description: string }) => {
-      const insertData = { ...feedback, vote_count: 1 };
+    mutationFn: async (input: CreateFeedbackInput) => {
+      const { appName, appSlug, ...feedback } = input;
+      const insertData = { 
+        ...feedback, 
+        vote_count: 1,
+        submitter_email: feedback.submitter_email || null,
+        notify_on_updates: feedback.notify_on_updates || false,
+      };
       
       const { data, error } = await supabase
         .from('feedback')
@@ -93,6 +111,22 @@ export function useCreateFeedback() {
         .from('votes')
         .insert({ feedback_id: feedbackData.id, voter_id: voterId } as never);
 
+      // Send notification to admin about new feedback
+      if (appName && appSlug) {
+        sendNotification({
+          type: 'new_feedback',
+          feedback: {
+            id: feedbackData.id,
+            type: feedbackData.type,
+            title: feedbackData.title,
+            submitter_email: feedbackData.submitter_email,
+            notify_on_updates: feedbackData.notify_on_updates,
+          },
+          appName,
+          appSlug,
+        });
+      }
+
       return feedbackData;
     },
     onSuccess: (data) => {
@@ -105,7 +139,12 @@ export function useUpdateFeedbackStatus() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: FeedbackStatus }) => {
+    mutationFn: async ({ id, status, appName, appSlug }: { 
+      id: string; 
+      status: FeedbackStatus;
+      appName?: string;
+      appSlug?: string;
+    }) => {
       const { data, error } = await supabase
         .from('feedback')
         .update({ status } as never)
@@ -114,7 +153,26 @@ export function useUpdateFeedbackStatus() {
         .single();
       
       if (error) throw error;
-      return data as FeedbackItem;
+      const feedbackData = data as FeedbackItem;
+      
+      // Send notification to user if they opted in
+      if (appName && appSlug && feedbackData.notify_on_updates && feedbackData.submitter_email) {
+        sendNotification({
+          type: 'status_change',
+          feedback: {
+            id: feedbackData.id,
+            type: feedbackData.type,
+            title: feedbackData.title,
+            status: feedbackData.status,
+            submitter_email: feedbackData.submitter_email,
+            notify_on_updates: feedbackData.notify_on_updates,
+          },
+          appName,
+          appSlug,
+        });
+      }
+      
+      return feedbackData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback'] });

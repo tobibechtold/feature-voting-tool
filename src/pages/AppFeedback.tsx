@@ -59,13 +59,23 @@ export default function AppFeedback() {
     vote.mutate(id);
   };
 
-  const handleCreateFeedback = async (data: { title: string; description: string; type: FeedbackType }) => {
+  const handleCreateFeedback = async (data: { 
+    title: string; 
+    description: string; 
+    type: FeedbackType;
+    email?: string;
+    notifyOnUpdates?: boolean;
+  }) => {
     if (!app) return;
     await createFeedback.mutateAsync({
       app_id: app.id,
       type: data.type,
       title: data.title,
       description: data.description,
+      submitter_email: data.email,
+      notify_on_updates: data.notifyOnUpdates,
+      appName: app.name,
+      appSlug: app.slug,
     });
   };
 
