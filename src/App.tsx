@@ -15,8 +15,8 @@ import NotFound from "./pages/NotFound";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ErrorBoundary>
-      <AppProvider>
+    <AppProvider>
+      <ErrorBoundary>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -31,8 +31,8 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
-      </AppProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </AppProvider>
   </QueryClientProvider>
 );
 
