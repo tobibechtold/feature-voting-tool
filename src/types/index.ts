@@ -7,6 +7,7 @@ export interface App {
   name: string;
   slug: string;
   description: string | null;
+  logo_url: string | null;
   created_at: string;
 }
 

@@ -133,13 +133,28 @@ export default function AppFeedback() {
             </Link>
             
             <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight mb-2">
-                  {app.name}
-                </h1>
-                {app.description && (
-                  <p className="text-muted-foreground">{app.description}</p>
+              <div className="flex items-center gap-4">
+                {app.logo_url ? (
+                  <img 
+                    src={app.logo_url} 
+                    alt={app.name}
+                    className="w-16 h-16 rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center border border-primary/10">
+                    <span className="text-3xl font-bold text-primary">
+                      {app.name.charAt(0)}
+                    </span>
+                  </div>
                 )}
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2">
+                    {app.name}
+                  </h1>
+                  {app.description && (
+                    <p className="text-muted-foreground">{app.description}</p>
+                  )}
+                </div>
               </div>
               
               <div className="flex gap-2">

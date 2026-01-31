@@ -13,11 +13,19 @@ export function AppCard({ app }: AppCardProps) {
       <Card className="group h-full transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 hover:-translate-y-1">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center border border-primary/10">
-              <span className="text-2xl font-bold text-primary">
-                {app.name.charAt(0)}
-              </span>
-            </div>
+            {app.logo_url ? (
+              <img 
+                src={app.logo_url} 
+                alt={app.name}
+                className="w-12 h-12 rounded-xl object-cover"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center border border-primary/10">
+                <span className="text-2xl font-bold text-primary">
+                  {app.name.charAt(0)}
+                </span>
+              </div>
+            )}
             <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
           </div>
         </CardHeader>
