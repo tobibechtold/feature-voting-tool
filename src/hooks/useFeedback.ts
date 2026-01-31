@@ -2,23 +2,51 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { FeedbackItem, FeedbackStatus, FeedbackType } from '@/types';
 import { getVoterId } from '@/lib/mockData';
+import { getCachedData, setCachedData, createTimeoutSignal, TimeoutError } from '@/lib/queryCache';
+
+const REQUEST_TIMEOUT = 10000; // 10 seconds
 
 export function useFeedback(appId: string | undefined) {
+  const cacheKey = `feedback:${appId}`;
+  const cached = appId ? getCachedData<FeedbackItem[]>(cacheKey) : null;
+  
   return useQuery({
     queryKey: ['feedback', appId],
     queryFn: async () => {
       if (!appId) return [];
-      const { data, error } = await supabase
-        .from('feedback')
-        .select('*')
-        .eq('app_id', appId)
-        .order('vote_count', { ascending: false });
       
-      if (error) throw error;
-      return (data || []) as FeedbackItem[];
+      const { signal, cleanup } = createTimeoutSignal(REQUEST_TIMEOUT);
+      
+      try {
+        const { data, error } = await supabase
+          .from('feedback')
+          .select('*')
+          .eq('app_id', appId)
+          .order('vote_count', { ascending: false })
+          .abortSignal(signal);
+        
+        cleanup();
+        
+        if (error) throw error;
+        
+        const feedback = (data || []) as FeedbackItem[];
+        
+        // Cache successful response
+        setCachedData(cacheKey, feedback);
+        
+        return feedback;
+      } catch (err) {
+        cleanup();
+        if (signal.aborted) {
+          throw new TimeoutError();
+        }
+        throw err;
+      }
     },
     enabled: !!appId,
-    placeholderData: [], // Show empty state immediately, not skeleton
+    // Use cached data for instant display
+    initialData: cached?.data,
+    initialDataUpdatedAt: cached?.updatedAt,
   });
 }
 

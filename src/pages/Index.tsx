@@ -1,13 +1,24 @@
 import { Header } from '@/components/Header';
 import { AppCard } from '@/components/AppCard';
 import { QueryErrorState } from '@/components/QueryErrorState';
+import { OfflineState } from '@/components/OfflineState';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApps } from '@/hooks/useApps';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RefreshCw } from 'lucide-react';
 
 const Index = () => {
   const { t } = useTranslation();
-  const { data: apps, isLoading, isPlaceholderData, error, refetch, isRefetching } = useApps();
+  const { data: apps, isLoading, error, refetch, isRefetching, fetchStatus, isFetching } = useApps();
+
+  // Determine what to show:
+  // - If paused (offline), show offline UI
+  // - If error, show error UI  
+  // - If loading with no data, show skeleton
+  // - If we have data, show it (with optional refresh indicator)
+  const isPaused = fetchStatus === 'paused';
+  const hasData = apps && apps.length > 0;
+  const showSkeleton = isLoading && !hasData;
 
   return (
     <div className="min-h-screen bg-background">
@@ -24,19 +35,32 @@ const Index = () => {
             </p>
           </div>
 
-          {error ? (
+          {/* Show refresh indicator when fetching with existing data */}
+          {isFetching && hasData && (
+            <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Refreshing...</span>
+            </div>
+          )}
+
+          {isPaused ? (
+            <OfflineState 
+              onRetry={() => refetch()} 
+              isRetrying={isRefetching}
+            />
+          ) : error ? (
             <QueryErrorState 
               error={error as Error} 
               onRetry={() => refetch()} 
               isRetrying={isRefetching}
             />
-          ) : (isLoading || isPlaceholderData) ? (
+          ) : showSkeleton ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-32 rounded-lg" />
               ))}
             </div>
-          ) : apps && apps.length > 0 ? (
+          ) : hasData ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {apps.map((app, index) => (
                 <div
