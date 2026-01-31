@@ -1,188 +1,99 @@
 
-# Admin Features Enhancement Plan
 
-## Overview
-This plan adds three key admin capabilities:
-1. **Delete user feedback** - Allow admins to remove inappropriate or duplicate feedback
-2. **App logo upload** - Enable admins to upload custom logos for each app
-3. **Enhanced admin experience** - Status change and commenting already exist, but we'll improve the workflow
+# Fix Upvoting 409 Conflict Error
 
-## Current State Analysis
+## Problem
+When you try to upvote feedback, you're getting a **409 Conflict** error. This happens because:
 
-**Already implemented:**
-- Admin can change feedback status (via `StatusSelect` in `FeedbackDetail.tsx`)
-- Admin can comment on feedback (via comment form in `FeedbackDetail.tsx`)
+1. The app tries to insert a duplicate vote into the database
+2. The database has a unique constraint that prevents the same user from voting twice on the same feedback
+3. The client-side "already voted" check can be stale or hasn't loaded yet
 
-**Needs to be added:**
-- Delete feedback button for admins
-- Logo upload for apps
-- Storage bucket for logos
+## Solution
+Add a database check before inserting a vote to ensure the vote doesn't already exist. This prevents the 409 error even if the client-side state is out of sync.
 
 ---
 
-## Implementation Details
+## Changes Required
 
-### 1. Delete Feedback Feature
+### File: `src/hooks/useFeedback.ts`
 
-**Database Changes:**
-No schema changes needed - the existing RLS policies allow admins to delete feedback.
-
-**Frontend Changes:**
-
-**File: `src/hooks/useFeedback.ts`**
-- Add a new `useDeleteFeedback` mutation hook that calls `supabase.from('feedback').delete()`
-
-**File: `src/pages/FeedbackDetail.tsx`**
-- Add a delete button (Trash icon) visible only to admins
-- Add a confirmation dialog before deletion
-- On successful deletion, redirect back to the app feedback list
-
-**File: `src/lib/i18n.ts`**
-- Add translations: `deleteFeedback`, `feedbackDeleted`, `confirmDeleteFeedback`
-
----
-
-### 2. App Logo Upload Feature
-
-**Database Changes (SQL Migration):**
-```sql
--- Add logo_url column to apps table
-ALTER TABLE public.apps ADD COLUMN logo_url text;
-
--- Create storage bucket for app logos
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('app-logos', 'app-logos', true);
-
--- Allow anyone to view logos (public bucket)
-CREATE POLICY "Public can view logos"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'app-logos');
-
--- Only admins can upload/update/delete logos
-CREATE POLICY "Admins can manage logos"
-ON storage.objects FOR ALL
-TO authenticated
-USING (
-  bucket_id = 'app-logos' 
-  AND public.has_role(auth.uid(), 'admin')
-)
-WITH CHECK (
-  bucket_id = 'app-logos' 
-  AND public.has_role(auth.uid(), 'admin')
-);
-```
-
-**Type Updates:**
-
-**File: `src/types/index.ts`**
-- Add `logo_url: string | null` to `App` interface
-
-**File: `src/types/database.ts`**
-- Add `logo_url` to apps table Row, Insert, and Update types
-
-**New Hook:**
-
-**File: `src/hooks/useStorage.ts`**
-- Create `useUploadLogo` hook for uploading images to Supabase Storage
-- Handle file upload, generate public URL, return the URL
-
-**Update Hooks:**
-
-**File: `src/hooks/useApps.ts`**
-- Update `useCreateApp` to accept optional `logo_url`
-- Update `useUpdateApp` to accept optional `logo_url`
-
-**Admin UI Updates:**
-
-**File: `src/pages/Admin.tsx`**
-- Add logo upload field to the create/edit app dialog
-- Show image preview when editing an existing app with a logo
-- Add a "Remove logo" option
-- Display logo thumbnails in the apps table
-
-**Display Updates:**
-
-**File: `src/components/AppCard.tsx`**
-- If `logo_url` exists, display the logo image
-- Otherwise, fall back to the current initial letter display
-
-**File: `src/pages/AppFeedback.tsx`**
-- Display app logo next to the app name in the header
-
-**Translations:**
-
-**File: `src/lib/i18n.ts`**
-- Add: `appLogo`, `uploadLogo`, `removeLogo`, `logoUploaded`
-
----
-
-### 3. Summary of File Changes
-
-| File | Changes |
-|------|---------|
-| `src/hooks/useFeedback.ts` | Add `useDeleteFeedback` hook |
-| `src/hooks/useStorage.ts` | New file - logo upload functionality |
-| `src/hooks/useApps.ts` | Update mutations for `logo_url` |
-| `src/pages/FeedbackDetail.tsx` | Add delete button with confirmation |
-| `src/pages/Admin.tsx` | Add logo upload UI to app dialog |
-| `src/components/AppCard.tsx` | Display app logo if available |
-| `src/pages/AppFeedback.tsx` | Display logo in header |
-| `src/types/index.ts` | Add `logo_url` to App interface |
-| `src/types/database.ts` | Add `logo_url` to database types |
-| `src/lib/i18n.ts` | Add new translations |
-
----
-
-## User Actions Required
-
-After implementation, you'll need to run the following SQL in your Supabase SQL Editor:
-
-```sql
--- Add logo_url column to apps table
-ALTER TABLE public.apps ADD COLUMN logo_url text;
-
--- Create storage bucket for app logos
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('app-logos', 'app-logos', true);
-
--- Allow anyone to view logos (public bucket)
-CREATE POLICY "Public can view logos"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'app-logos');
-
--- Only admins can manage logos
-CREATE POLICY "Admins can manage logos"
-ON storage.objects FOR ALL
-TO authenticated
-USING (
-  bucket_id = 'app-logos' 
-  AND public.has_role(auth.uid(), 'admin')
-)
-WITH CHECK (
-  bucket_id = 'app-logos' 
-  AND public.has_role(auth.uid(), 'admin')
-);
-```
-
----
-
-## Visual Flow
+Update the `useVote` mutation to:
+1. First check if a vote already exists in the database
+2. Only insert if no existing vote is found
+3. Handle the case gracefully if already voted
 
 ```text
-+------------------+     +-------------------+     +------------------+
-| Admin Dashboard  | --> | Create/Edit App   | --> | Upload Logo      |
-| (Manage Apps)    |     | Dialog            |     | (Supabase Storage)|
-+------------------+     +-------------------+     +------------------+
-                                 |
-                                 v
-                         +-------------------+
-                         | App Card          |
-                         | (Shows Logo)      |
-                         +-------------------+
-                                 |
-                                 v
-                         +-------------------+
-                         | Feedback Detail   |
-                         | + Delete Button   |
-                         +-------------------+
+Current flow:
+  Click Vote -> Insert vote -> 409 Error (if duplicate)
+
+New flow:
+  Click Vote -> Check if vote exists -> If not, insert vote -> Success
+                                     -> If yes, skip (no error)
 ```
+
+**Code changes:**
+
+```typescript
+export function useVote() {
+  const queryClient = useQueryClient();
+  const voterId = getVoterId();
+  
+  return useMutation({
+    mutationFn: async (feedbackId: string) => {
+      // Check if already voted (fresh DB validation)
+      const { data: existingVote } = await supabase
+        .from('votes')
+        .select('id')
+        .eq('feedback_id', feedbackId)
+        .eq('voter_id', voterId)
+        .maybeSingle();
+
+      if (existingVote) {
+        // Already voted - skip silently (not an error)
+        return;
+      }
+
+      // Insert vote
+      const { error: voteError } = await supabase
+        .from('votes')
+        .insert({ feedback_id: feedbackId, voter_id: voterId } as never);
+      
+      if (voteError) throw voteError;
+
+      // Increment vote count
+      const { data: feedback, error: fetchError } = await supabase
+        .from('feedback')
+        .select('vote_count')
+        .eq('id', feedbackId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      const feedbackData = feedback as { vote_count: number };
+
+      const { error: updateError } = await supabase
+        .from('feedback')
+        .update({ vote_count: feedbackData.vote_count + 1 } as never)
+        .eq('id', feedbackId);
+      
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feedback'] });
+      queryClient.invalidateQueries({ queryKey: ['votes'] });
+    },
+  });
+}
+```
+
+---
+
+## Summary
+
+| File | Change |
+|------|--------|
+| `src/hooks/useFeedback.ts` | Add database check for existing vote before inserting |
+
+This fix ensures that even if a user clicks the vote button multiple times, or if the client-side voted state is stale, the app will gracefully handle it without throwing errors.
+
