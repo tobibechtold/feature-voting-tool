@@ -1,12 +1,45 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Header } from '@/components/Header';
+import { AppCard } from '@/components/AppCard';
+import { useTranslation } from '@/hooks/useTranslation';
+import { mockApps } from '@/lib/mockData';
 
 const Index = () => {
+  const { t } = useTranslation();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <main className="container py-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12 animate-fade-in">
+            <h1 className="text-4xl font-bold tracking-tight mb-4">
+              {t('selectApp')}
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              {t('selectAppDesc')}
+            </p>
+          </div>
+
+          {mockApps.length > 0 ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {mockApps.map((app, index) => (
+                <div
+                  key={app.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <AppCard app={app} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <p className="text-muted-foreground">{t('noApps')}</p>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 };
