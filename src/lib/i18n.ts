@@ -100,6 +100,12 @@ export const translations = {
     retry: 'Retry',
     removeLogo: 'Remove Logo',
     logoUploaded: 'Logo uploaded successfully',
+    
+    // Email notifications
+    emailOptional: 'Email (optional)',
+    emailPlaceholder: 'your@email.com',
+    notifyOnUpdates: 'Notify me about status changes and replies',
+    submitterEmail: 'Submitter Email',
   },
   de: {
     // Common
@@ -200,6 +206,12 @@ export const translations = {
     retry: 'Erneut versuchen',
     removeLogo: 'Logo entfernen',
     logoUploaded: 'Logo erfolgreich hochgeladen',
+    
+    // Email notifications
+    emailOptional: 'E-Mail (optional)',
+    emailPlaceholder: 'deine@email.de',
+    notifyOnUpdates: 'Bei Statusänderungen und Antworten benachrichtigen',
+    submitterEmail: 'E-Mail des Einreichers',
   },
 } as const;
 
