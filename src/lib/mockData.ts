@@ -6,6 +6,7 @@ export const mockApps: App[] = [
     name: 'TaskFlow Pro',
     slug: 'taskflow',
     description: 'Project management and task tracking',
+    logo_url: null,
     created_at: '2024-01-15T10:00:00Z',
   },
   {
@@ -13,6 +14,7 @@ export const mockApps: App[] = [
     name: 'CodeSnap',
     slug: 'codesnap',
     description: 'Beautiful code screenshots',
+    logo_url: null,
     created_at: '2024-02-20T14:30:00Z',
   },
   {
@@ -20,6 +22,7 @@ export const mockApps: App[] = [
     name: 'DataViz Studio',
     slug: 'dataviz',
     description: 'Data visualization platform',
+    logo_url: null,
     created_at: '2024-03-10T09:15:00Z',
   },
 ];

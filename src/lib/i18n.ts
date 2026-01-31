@@ -85,6 +85,17 @@ export const translations = {
     language: 'Language',
     english: 'English',
     german: 'Deutsch',
+    
+    // Delete feedback
+    deleteFeedback: 'Delete Feedback',
+    feedbackDeleted: 'Feedback deleted successfully',
+    confirmDeleteFeedback: 'Are you sure you want to delete this feedback? This action cannot be undone.',
+    
+    // App logo
+    appLogo: 'App Logo',
+    uploadLogo: 'Upload Logo',
+    removeLogo: 'Remove Logo',
+    logoUploaded: 'Logo uploaded successfully',
   },
   de: {
     // Common
@@ -170,6 +181,17 @@ export const translations = {
     language: 'Sprache',
     english: 'English',
     german: 'Deutsch',
+    
+    // Delete feedback
+    deleteFeedback: 'Feedback löschen',
+    feedbackDeleted: 'Feedback erfolgreich gelöscht',
+    confirmDeleteFeedback: 'Möchtest du dieses Feedback wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+    
+    // App logo
+    appLogo: 'App-Logo',
+    uploadLogo: 'Logo hochladen',
+    removeLogo: 'Logo entfernen',
+    logoUploaded: 'Logo erfolgreich hochgeladen',
   },
 } as const;
 
