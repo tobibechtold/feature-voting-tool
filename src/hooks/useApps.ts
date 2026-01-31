@@ -6,12 +6,17 @@ export function useApps() {
   return useQuery({
     queryKey: ['apps'],
     queryFn: async () => {
+      console.log('[useApps] Fetching apps...');
       const { data, error } = await supabase
         .from('apps')
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('[useApps] Error:', error);
+        throw error;
+      }
+      console.log('[useApps] Data:', data);
       return (data || []) as App[];
     },
   });
