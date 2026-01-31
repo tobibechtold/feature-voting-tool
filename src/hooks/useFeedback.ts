@@ -115,7 +115,21 @@ export function useVote() {
   
   return useMutation({
     mutationFn: async (feedbackId: string) => {
-      // Check if already voted (fresh DB validation)
+      // Try to call the RPC function first (atomic operation)
+      const { data: rpcData, error: rpcError } = await (supabase.rpc as Function)('vote_for_feedback', {
+        p_feedback_id: feedbackId,
+        p_voter_id: voterId,
+      });
+
+      // If RPC exists and works, we're done
+      if (!rpcError) {
+        return rpcData;
+      }
+
+      // Fallback: if RPC doesn't exist, use the manual approach
+      console.warn('vote_for_feedback RPC not available, using fallback:', rpcError.message);
+
+      // Check if already voted
       const { data: existingVote } = await supabase
         .from('votes')
         .select('id')
@@ -124,38 +138,42 @@ export function useVote() {
         .maybeSingle();
 
       if (existingVote) {
-        // Already voted - skip silently (not an error)
-        return;
+        return { already_voted: true };
       }
 
-      // Insert vote
+      // Insert vote with ON CONFLICT handling via upsert
       const { error: voteError } = await supabase
         .from('votes')
-        .insert({ feedback_id: feedbackId, voter_id: voterId } as never);
+        .upsert(
+          { feedback_id: feedbackId, voter_id: voterId } as never,
+          { onConflict: 'feedback_id,voter_id', ignoreDuplicates: true }
+        );
       
-      if (voteError) throw voteError;
+      if (voteError && !voteError.message.includes('duplicate')) {
+        throw voteError;
+      }
 
-      // Increment vote count
-      const { data: feedback, error: fetchError } = await supabase
-        .from('feedback')
-        .select('vote_count')
-        .eq('id', feedbackId)
-        .single();
+      // Get current count and update (best effort)
+      const { data: voteCount } = await supabase
+        .from('votes')
+        .select('id', { count: 'exact' })
+        .eq('feedback_id', feedbackId);
       
-      if (fetchError) throw fetchError;
-      
-      const feedbackData = feedback as { vote_count: number };
+      const newCount = voteCount?.length || 0;
 
-      const { error: updateError } = await supabase
+      await supabase
         .from('feedback')
-        .update({ vote_count: feedbackData.vote_count + 1 } as never)
+        .update({ vote_count: newCount } as never)
         .eq('id', feedbackId);
-      
-      if (updateError) throw updateError;
+
+      return { vote_count: newCount };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
       queryClient.invalidateQueries({ queryKey: ['votes'] });
+    },
+    onError: (error) => {
+      console.error('Vote error:', error);
     },
   });
 }
@@ -165,23 +183,37 @@ export function useDeleteFeedback() {
   
   return useMutation({
     mutationFn: async (feedbackId: string) => {
-      // First delete all votes for this feedback
+      // Try RPC first (atomic cascade delete)
+      const { error: rpcError } = await (supabase.rpc as Function)('delete_feedback_cascade', {
+        p_feedback_id: feedbackId,
+      });
+
+      if (!rpcError) {
+        return;
+      }
+
+      // Fallback: manual cascade delete
+      console.warn('delete_feedback_cascade RPC not available, using fallback:', rpcError.message);
+
+      // Delete in order: votes -> comments -> feedback
       const { error: votesError } = await supabase
         .from('votes')
         .delete()
         .eq('feedback_id', feedbackId);
       
-      if (votesError) throw votesError;
+      if (votesError) {
+        console.error('Error deleting votes:', votesError);
+      }
 
-      // Then delete all comments for this feedback
       const { error: commentsError } = await supabase
         .from('comments')
         .delete()
         .eq('feedback_id', feedbackId);
       
-      if (commentsError) throw commentsError;
+      if (commentsError) {
+        console.error('Error deleting comments:', commentsError);
+      }
 
-      // Finally delete the feedback
       const { error } = await supabase
         .from('feedback')
         .delete()
