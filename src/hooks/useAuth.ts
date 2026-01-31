@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { promiseWithTimeout, TimeoutError } from '@/lib/queryCache';
+import { promiseWithTimeout } from '@/lib/queryCache';
 
 const AUTH_TIMEOUT = 6000; // 6 seconds for auth operations
 const ROLE_TIMEOUT = 5000; // 5 seconds for role check
@@ -37,29 +37,7 @@ export function useAuth() {
       }
     };
 
-    // Set up auth state listener BEFORE getting session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!isMounted) return;
-
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Check admin role asynchronously with timeout
-          const adminStatus = await checkAdminRole(session.user.id);
-          if (isMounted) {
-            setIsAdmin(adminStatus);
-            setLoading(false);
-          }
-        } else {
-          setIsAdmin(false);
-          setLoading(false);
-        }
-      }
-    );
-
-    // Get initial session with timeout
+    // Initialize session FIRST, then set up listener for future changes
     const initSession = async () => {
       try {
         const getSession = async () => {
@@ -96,7 +74,32 @@ export function useAuth() {
       }
     };
 
+    // Run initial session load first
     initSession();
+
+    // Set up auth state listener for FUTURE changes (login/logout after initial load)
+    // This listener should NOT control isLoading - that's only for initial load
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!isMounted) return;
+
+        // Update session/user state immediately
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // Fire-and-forget: check admin role without awaiting
+          // This prevents race conditions with initSession
+          checkAdminRole(session.user.id).then((adminStatus) => {
+            if (isMounted) {
+              setIsAdmin(adminStatus);
+            }
+          });
+        } else {
+          setIsAdmin(false);
+        }
+      }
+    );
 
     return () => {
       isMounted = false;

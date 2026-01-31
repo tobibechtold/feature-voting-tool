@@ -14,5 +14,6 @@ export const publicSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false,
+    storageKey: 'public-supabase-auth', // Different key to avoid GoTrueClient conflicts
   },
 });
