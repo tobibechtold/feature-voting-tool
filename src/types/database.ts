@@ -15,6 +15,7 @@ export type Database = {
           name: string
           slug: string
           description: string | null
+          logo_url: string | null
           created_at: string
         }
         Insert: {
@@ -22,6 +23,7 @@ export type Database = {
           name: string
           slug: string
           description?: string | null
+          logo_url?: string | null
           created_at?: string
         }
         Update: {
@@ -29,6 +31,7 @@ export type Database = {
           name?: string
           slug?: string
           description?: string | null
+          logo_url?: string | null
           created_at?: string
         }
       }

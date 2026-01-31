@@ -146,3 +146,39 @@ export function useVote() {
     },
   });
 }
+
+export function useDeleteFeedback() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (feedbackId: string) => {
+      // First delete all votes for this feedback
+      const { error: votesError } = await supabase
+        .from('votes')
+        .delete()
+        .eq('feedback_id', feedbackId);
+      
+      if (votesError) throw votesError;
+
+      // Then delete all comments for this feedback
+      const { error: commentsError } = await supabase
+        .from('comments')
+        .delete()
+        .eq('feedback_id', feedbackId);
+      
+      if (commentsError) throw commentsError;
+
+      // Finally delete the feedback
+      const { error } = await supabase
+        .from('feedback')
+        .delete()
+        .eq('id', feedbackId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feedback'] });
+      queryClient.invalidateQueries({ queryKey: ['votes'] });
+    },
+  });
+}

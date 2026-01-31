@@ -39,7 +39,7 @@ export function useCreateApp() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (app: { name: string; slug: string; description: string | null }) => {
+    mutationFn: async (app: { name: string; slug: string; description: string | null; logo_url?: string | null }) => {
       const { data, error } = await supabase
         .from('apps')
         .insert(app as never)
@@ -59,7 +59,7 @@ export function useUpdateApp() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; name?: string; slug?: string; description?: string | null }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; slug?: string; description?: string | null; logo_url?: string | null }) => {
       const { data, error } = await supabase
         .from('apps')
         .update(updates as never)

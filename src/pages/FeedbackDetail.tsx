@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Send, User, ShieldCheck } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Send, User, ShieldCheck, Trash2 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { VoteButton } from '@/components/VoteButton';
 import { StatusSelect } from '@/components/StatusSelect';
@@ -10,19 +10,32 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApp } from '@/contexts/AppContext';
 import { useApp as useAppData } from '@/hooks/useApps';
-import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus } from '@/hooks/useFeedback';
+import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback } from '@/hooks/useFeedback';
 import { useComments, useCreateComment } from '@/hooks/useComments';
+import { useToast } from '@/hooks/use-toast';
 import { FeedbackStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { de, enUS } from 'date-fns/locale';
 
 export default function FeedbackDetail() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
+  const navigate = useNavigate();
   const { t, language } = useTranslation();
   const { isAdmin } = useApp();
+  const { toast } = useToast();
   
   const { data: app, isLoading: appLoading } = useAppData(slug);
   const { data: item, isLoading: itemLoading } = useFeedbackItem(id);
@@ -31,8 +44,10 @@ export default function FeedbackDetail() {
   const vote = useVote();
   const updateStatus = useUpdateFeedbackStatus();
   const createComment = useCreateComment();
+  const deleteFeedback = useDeleteFeedback();
   
   const [newComment, setNewComment] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const dateLocale = language === 'de' ? de : enUS;
 
@@ -55,6 +70,23 @@ export default function FeedbackDetail() {
       is_admin: isAdmin,
     });
     setNewComment('');
+  };
+
+  const handleDeleteFeedback = async () => {
+    if (!item) return;
+    
+    try {
+      await deleteFeedback.mutateAsync(item.id);
+      toast({ title: t('feedbackDeleted') });
+      navigate(`/app/${slug}`);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
+    setDeleteDialogOpen(false);
   };
 
   const getStatusLabel = (status: FeedbackStatus) => {
@@ -108,13 +140,27 @@ export default function FeedbackDetail() {
       <main className="container py-8">
         <div className="max-w-3xl mx-auto">
           {/* Back link */}
-          <Link
-            to={`/app/${slug}`}
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {t('back')} to {app.name}
-          </Link>
+          <div className="flex items-center justify-between mb-6">
+            <Link
+              to={`/app/${slug}`}
+              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('back')} to {app.name}
+            </Link>
+            
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {t('deleteFeedback')}
+              </Button>
+            )}
+          </div>
 
           {/* Main content */}
           <div className="animate-fade-in">
@@ -246,6 +292,28 @@ export default function FeedbackDetail() {
           </div>
         </div>
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteFeedback')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('confirmDeleteFeedback')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteFeedback}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteFeedback.isPending}
+            >
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
