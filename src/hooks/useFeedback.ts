@@ -18,6 +18,7 @@ export function useFeedback(appId: string | undefined) {
       return (data || []) as FeedbackItem[];
     },
     enabled: !!appId,
+    placeholderData: [], // Show empty state immediately, not skeleton
   });
 }
 
