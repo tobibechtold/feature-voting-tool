@@ -45,6 +45,8 @@ export type Database = {
           status: 'open' | 'planned' | 'progress' | 'completed'
           vote_count: number
           created_at: string
+          submitter_email: string | null
+          notify_on_updates: boolean
         }
         Insert: {
           id?: string
@@ -55,6 +57,8 @@ export type Database = {
           status?: 'open' | 'planned' | 'progress' | 'completed'
           vote_count?: number
           created_at?: string
+          submitter_email?: string | null
+          notify_on_updates?: boolean
         }
         Update: {
           id?: string
@@ -65,6 +69,8 @@ export type Database = {
           status?: 'open' | 'planned' | 'progress' | 'completed'
           vote_count?: number
           created_at?: string
+          submitter_email?: string | null
+          notify_on_updates?: boolean
         }
       }
       votes: {
