@@ -59,17 +59,24 @@ export default function FeedbackDetail() {
   };
 
   const handleStatusChange = (status: FeedbackStatus) => {
-    if (!item) return;
-    updateStatus.mutate({ id: item.id, status });
+    if (!item || !app) return;
+    updateStatus.mutate({ 
+      id: item.id, 
+      status,
+      appName: app.name,
+      appSlug: app.slug,
+    });
   };
 
   const handleAddComment = async () => {
-    if (!item || !newComment.trim()) return;
+    if (!item || !newComment.trim() || !app) return;
     
     await createComment.mutateAsync({
       feedback_id: item.id,
       content: newComment.trim(),
       is_admin: isAdmin,
+      appName: app.name,
+      appSlug: app.slug,
     });
     setNewComment('');
   };
@@ -248,6 +255,19 @@ export default function FeedbackDetail() {
                     <p className="text-muted-foreground whitespace-pre-wrap">
                       {item.description}
                     </p>
+                    
+                    {/* Admin-only: show submitter email if available */}
+                    {isAdmin && item.submitter_email && (
+                      <div className="mt-4 flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">{t('submitterEmail')}:</span>
+                        <a 
+                          href={`mailto:${item.submitter_email}`}
+                          className="text-primary hover:underline"
+                        >
+                          {item.submitter_email}
+                        </a>
+                      </div>
+                    )}
                     
                     <p className="text-sm text-muted-foreground mt-4">
                       {formatDistanceToNow(new Date(item.created_at), {

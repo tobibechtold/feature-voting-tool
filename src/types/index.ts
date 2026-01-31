@@ -20,6 +20,8 @@ export interface FeedbackItem {
   status: FeedbackStatus;
   vote_count: number;
   created_at: string;
+  submitter_email?: string | null;
+  notify_on_updates?: boolean;
 }
 
 export interface Vote {

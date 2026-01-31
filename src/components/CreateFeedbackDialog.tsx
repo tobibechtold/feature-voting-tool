@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FeedbackType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +20,13 @@ interface CreateFeedbackDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type: FeedbackType;
-  onSubmit: (data: { title: string; description: string; type: FeedbackType }) => void;
+  onSubmit: (data: { 
+    title: string; 
+    description: string; 
+    type: FeedbackType;
+    email?: string;
+    notifyOnUpdates?: boolean;
+  }) => void;
 }
 
 export function CreateFeedbackDialog({
@@ -32,20 +39,44 @@ export function CreateFeedbackDialog({
   const { toast } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [email, setEmail] = useState('');
+  const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isValidEmail = (email: string) => {
+    if (!email) return true; // Empty is valid (optional field)
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
+    
+    if (email && !isValidEmail(email)) {
+      toast({
+        title: 'Invalid email',
+        description: 'Please enter a valid email address',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ title: title.trim(), description: description.trim(), type });
+      await onSubmit({ 
+        title: title.trim(), 
+        description: description.trim(), 
+        type,
+        email: email.trim() || undefined,
+        notifyOnUpdates: email.trim() ? notifyOnUpdates : false,
+      });
       toast({
         title: t('submitSuccess'),
       });
       setTitle('');
       setDescription('');
+      setEmail('');
+      setNotifyOnUpdates(true);
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -106,6 +137,33 @@ export function CreateFeedbackDialog({
               required
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">{t('emailOptional')}</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder={t('emailPlaceholder')}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          {email.trim() && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="notifyOnUpdates"
+                checked={notifyOnUpdates}
+                onCheckedChange={(checked) => setNotifyOnUpdates(checked === true)}
+              />
+              <Label 
+                htmlFor="notifyOnUpdates" 
+                className="text-sm font-normal cursor-pointer"
+              >
+                {t('notifyOnUpdates')}
+              </Label>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4">
             <Button
