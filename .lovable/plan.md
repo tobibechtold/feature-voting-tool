@@ -1,161 +1,130 @@
 
-# Email Notifications with Separate Email and Notification Preferences
 
-## Overview
-Add email notification functionality with **two separate fields**:
-1. **Email address** (optional) - Visible to admins so they can contact users with questions
-2. **Notify me checkbox** - Controls whether to send automatic notifications on status changes/admin comments
+# Email Notifications Implementation
 
-This separation allows users to share their email for admin contact purposes without receiving automatic notifications.
+## Prerequisites
+You need to add the `RESEND_API_KEY` secret to your Supabase project before the edge function will work.
 
 ---
 
-## Requirements
+## Files to Create/Update
 
-### Before Implementation
-You'll need a **Resend** account for sending emails:
-1. Sign up at https://resend.com if you don't have one
-2. Verify your domain at https://resend.com/domains (e.g., `tobibechtold.dev`)
-3. Create an API key at https://resend.com/api-keys
-4. Provide the `RESEND_API_KEY` when prompted
+### 1. Edge Function: `supabase/functions/send-notification/index.ts`
 
----
-
-## UI Design
-
-### Create Feedback Dialog (updated)
-
-```text
-┌─────────────────────────────────────────┐
-│ Request Feature                         │
-│                                         │
-│ Title                                   │
-│ ┌─────────────────────────────────────┐ │
-│ │                                     │ │
-│ └─────────────────────────────────────┘ │
-│                                         │
-│ Description                             │
-│ ┌─────────────────────────────────────┐ │
-│ │                                     │ │
-│ │                                     │ │
-│ └─────────────────────────────────────┘ │
-│                                         │
-│ Email (optional)                        │
-│ ┌─────────────────────────────────────┐ │
-│ │ your@email.com                      │ │
-│ └─────────────────────────────────────┘ │
-│                                         │
-│ ☑ Notify me about status changes        │
-│                                         │
-│              [Cancel] [Submit]          │
-└─────────────────────────────────────────┘
-```
-
-- Email field is always optional
-- Checkbox only shows when email is entered
-- Checkbox checked by default when email is provided
-
-### Admin View (Feedback Detail)
-- Admin can see submitter email if provided (below the description)
-- Admin can click the email to compose a message
-
----
-
-## Technical Plan
-
-### 1. Database Changes
-
-Add two columns to the `feedback` table:
-- `submitter_email` (text, nullable) - User's email for admin contact
-- `notify_on_updates` (boolean, default false) - Whether to send notifications
-
-```sql
-ALTER TABLE public.feedback 
-ADD COLUMN submitter_email text,
-ADD COLUMN notify_on_updates boolean DEFAULT false;
-```
-
-### 2. Update TypeScript Types
-
-**src/types/database.ts** - Add to feedback table types:
-- Row: `submitter_email: string | null`, `notify_on_updates: boolean`
-- Insert: `submitter_email?: string | null`, `notify_on_updates?: boolean`
-- Update: `submitter_email?: string | null`, `notify_on_updates?: boolean`
-
-**src/types/index.ts** - Add to FeedbackItem interface:
-- `submitter_email?: string | null`
-- `notify_on_updates?: boolean`
-
-### 3. Update Create Feedback Dialog
-
-**src/components/CreateFeedbackDialog.tsx**:
-- Add `email` state (string)
-- Add `notifyOnUpdates` state (boolean)
-- Add email input field with validation
-- Add checkbox that appears when email is entered
-- Update `onSubmit` signature to include `email?: string`, `notifyOnUpdates?: boolean`
-- Validate email format when provided
-
-### 4. Update Translations
-
-**src/lib/i18n.ts** - Add translations:
 ```typescript
-// English
-emailOptional: 'Email (optional)',
-emailPlaceholder: 'your@email.com',
-notifyOnUpdates: 'Notify me about status changes and replies',
-submitterEmail: 'Submitter Email',
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "npm:resend@2.0.0";
 
-// German
-emailOptional: 'E-Mail (optional)',
-emailPlaceholder: 'deine@email.de',
-notifyOnUpdates: 'Bei Statusänderungen und Antworten benachrichtigen',
-submitterEmail: 'E-Mail des Einreichers',
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+interface NotificationRequest {
+  type: "new_feedback" | "status_change" | "admin_comment";
+  feedback: {
+    id: string;
+    type: "feature" | "bug";
+    title: string;
+    status?: string;
+    submitter_email?: string | null;
+    notify_on_updates?: boolean;
+  };
+  appName: string;
+  appSlug: string;
+  comment?: string;
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { type, feedback, appName, appSlug, comment }: NotificationRequest = await req.json();
+    const feedbackUrl = `https://featurevoting.tobibechtold.dev/app/${appSlug}/feedback/${feedback.id}`;
+    const feedbackTypeLabel = feedback.type === "feature" ? "Feature Request" : "Bug Report";
+
+    let emailResponse;
+
+    if (type === "new_feedback") {
+      // Always notify admin about new feedback
+      emailResponse = await resend.emails.send({
+        from: "Feature Vote <noreply@tobibechtold.dev>",
+        to: ["support@tobibechtold.dev"],
+        subject: `New ${feedbackTypeLabel}: ${feedback.title}`,
+        html: `
+          <h2>New ${feedbackTypeLabel} for ${appName}</h2>
+          <p><strong>Title:</strong> ${feedback.title}</p>
+          ${feedback.submitter_email ? `<p><strong>Submitter Email:</strong> ${feedback.submitter_email}</p>` : ""}
+          <p><a href="${feedbackUrl}">View Feedback</a></p>
+        `,
+      });
+    } else if (type === "status_change" && feedback.notify_on_updates && feedback.submitter_email) {
+      // Notify user about status change (only if they opted in)
+      const statusLabels: Record<string, string> = {
+        open: "Open",
+        planned: "Planned",
+        progress: "In Progress",
+        completed: "Completed",
+      };
+      const statusLabel = statusLabels[feedback.status || "open"] || feedback.status;
+
+      emailResponse = await resend.emails.send({
+        from: "Feature Vote <noreply@tobibechtold.dev>",
+        to: [feedback.submitter_email],
+        subject: `Your ${feedbackTypeLabel.toLowerCase()} is now ${statusLabel}`,
+        html: `
+          <h2>Status Update</h2>
+          <p>Your ${feedbackTypeLabel.toLowerCase()} "<strong>${feedback.title}</strong>" has been updated.</p>
+          <p><strong>New Status:</strong> ${statusLabel}</p>
+          <p><a href="${feedbackUrl}">View Details</a></p>
+        `,
+      });
+    } else if (type === "admin_comment" && feedback.notify_on_updates && feedback.submitter_email) {
+      // Notify user about admin comment (only if they opted in)
+      emailResponse = await resend.emails.send({
+        from: "Feature Vote <noreply@tobibechtold.dev>",
+        to: [feedback.submitter_email],
+        subject: `Admin replied to your ${feedbackTypeLabel.toLowerCase()}`,
+        html: `
+          <h2>New Reply</h2>
+          <p>An admin has replied to your ${feedbackTypeLabel.toLowerCase()} "<strong>${feedback.title}</strong>".</p>
+          ${comment ? `<blockquote style="border-left: 3px solid #ccc; padding-left: 12px; margin: 16px 0;">${comment}</blockquote>` : ""}
+          <p><a href="${feedbackUrl}">View Conversation</a></p>
+        `,
+      });
+    } else {
+      // No notification needed
+      return new Response(JSON.stringify({ message: "No notification sent" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    console.log("Email sent successfully:", emailResponse);
+
+    return new Response(JSON.stringify(emailResponse), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  } catch (error: any) {
+    console.error("Error in send-notification function:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  }
+};
+
+serve(handler);
 ```
 
-### 5. Update Feedback Hooks
+### 2. Edge Function Config: `supabase/config.toml`
 
-**src/hooks/useFeedback.ts** - `useCreateFeedback`:
-- Accept `submitter_email` and `notify_on_updates` in mutation input
-- Pass these to the Supabase insert
-- After creation, call edge function to notify admin (support@tobibechtold.dev)
-
-**src/hooks/useFeedback.ts** - `useUpdateFeedbackStatus`:
-- After status update, fetch feedback to check `submitter_email` and `notify_on_updates`
-- If `notify_on_updates` is true, call edge function
-
-### 6. Update Comments Hook
-
-**src/hooks/useComments.ts** - `useCreateComment`:
-- After admin comment, fetch parent feedback
-- If `notify_on_updates` is true and comment is from admin, call edge function
-
-### 7. Update AppFeedback Page
-
-**src/pages/AppFeedback.tsx** - `handleCreateFeedback`:
-- Pass email and notifyOnUpdates to mutation
-
-### 8. Update FeedbackDetail Page (Admin View)
-
-**src/pages/FeedbackDetail.tsx**:
-- When admin is viewing, show submitter email if available
-- Display as a mailto link for easy contact
-- Show below the feedback description
-
-### 9. Create Edge Function
-
-**supabase/functions/send-notification/index.ts**:
-
-Handles three notification types:
-| Type | Recipient | Subject |
-|------|-----------|---------|
-| `new_feedback` | support@tobibechtold.dev | New {type}: {title} |
-| `status_change` | submitter_email (if notify_on_updates) | Your {type} is now {status} |
-| `admin_comment` | submitter_email (if notify_on_updates) | Admin replied to your {type} |
-
-Uses Resend API for sending emails.
-
-**supabase/config.toml**:
 ```toml
 [functions.send-notification]
 verify_jwt = false
@@ -163,36 +132,109 @@ verify_jwt = false
 
 ---
 
-## Notification Logic Summary
+### 3. Update Types: `src/types/database.ts`
 
-| Event | Send to Admin? | Send to User? |
-|-------|----------------|---------------|
-| New feedback created | Always (support@) | Never |
-| Status changed | Never | Only if `notify_on_updates = true` |
-| Admin comments | Never | Only if `notify_on_updates = true` |
+Add to the `feedback` table types:
+- **Row**: `submitter_email: string | null`, `notify_on_updates: boolean`
+- **Insert**: `submitter_email?: string | null`, `notify_on_updates?: boolean`
+- **Update**: `submitter_email?: string | null`, `notify_on_updates?: boolean`
 
----
+### 4. Update Types: `src/types/index.ts`
 
-## File Changes Summary
-
-| File | Action |
-|------|--------|
-| Database migration | Add `submitter_email` and `notify_on_updates` columns |
-| `src/types/database.ts` | Add new columns to types |
-| `src/types/index.ts` | Add fields to FeedbackItem |
-| `src/lib/i18n.ts` | Add email/notification translations |
-| `src/components/CreateFeedbackDialog.tsx` | Add email input + checkbox |
-| `src/pages/AppFeedback.tsx` | Pass email data to mutation |
-| `src/pages/FeedbackDetail.tsx` | Show email to admin |
-| `src/hooks/useFeedback.ts` | Handle email in create, trigger notifications |
-| `src/hooks/useComments.ts` | Trigger notification on admin comment |
-| `supabase/functions/send-notification/index.ts` | Create edge function |
-| `supabase/config.toml` | Create with function config |
+Add to `FeedbackItem` interface:
+```typescript
+submitter_email?: string | null;
+notify_on_updates?: boolean;
+```
 
 ---
 
-## Security Notes
+### 5. Update Translations: `src/lib/i18n.ts`
 
-1. **Email never exposed publicly** - Only admins see submitter_email in the UI
-2. **Notifications respect user preference** - Only sent if `notify_on_updates = true`
-3. **Email validation** - Format validated client-side before submission
+Add these keys to both `en` and `de`:
+
+**English:**
+```typescript
+emailOptional: 'Email (optional)',
+emailPlaceholder: 'your@email.com',
+notifyOnUpdates: 'Notify me about status changes and replies',
+submitterEmail: 'Submitter Email',
+```
+
+**German:**
+```typescript
+emailOptional: 'E-Mail (optional)',
+emailPlaceholder: 'deine@email.de',
+notifyOnUpdates: 'Bei Statusänderungen und Antworten benachrichtigen',
+submitterEmail: 'E-Mail des Einreichers',
+```
+
+---
+
+### 6. Update `src/components/CreateFeedbackDialog.tsx`
+
+- Add `email` state (string, default empty)
+- Add `notifyOnUpdates` state (boolean, default true)
+- Add email input field after description
+- Add checkbox (only visible when email is entered)
+- Update `onSubmit` prop signature: `email?: string`, `notifyOnUpdates?: boolean`
+- Validate email format when provided
+
+---
+
+### 7. Update `src/hooks/useFeedback.ts`
+
+**`useCreateFeedback`:**
+- Accept `submitter_email` and `notify_on_updates` in mutation input
+- After successful creation, call edge function with `type: "new_feedback"`
+
+**`useUpdateFeedbackStatus`:**
+- After status update, call edge function with `type: "status_change"`
+
+---
+
+### 8. Update `src/hooks/useComments.ts`
+
+**`useCreateComment`:**
+- After admin comment creation, fetch parent feedback
+- If `is_admin` and feedback has email + notify_on_updates, call edge function with `type: "admin_comment"`
+
+---
+
+### 9. Update `src/pages/AppFeedback.tsx`
+
+Update `handleCreateFeedback` to pass email and notifyOnUpdates:
+```typescript
+const handleCreateFeedback = async (data: { 
+  title: string; 
+  description: string; 
+  type: FeedbackType;
+  email?: string;
+  notifyOnUpdates?: boolean;
+}) => {
+  // ... pass to mutation
+};
+```
+
+---
+
+### 10. Update `src/pages/FeedbackDetail.tsx`
+
+When admin is viewing and `submitter_email` exists, show it below the description as a `mailto` link.
+
+---
+
+## Notification Flow Summary
+
+| Event | Admin Email | User Email |
+|-------|-------------|------------|
+| New feedback | Always sent to support@tobibechtold.dev | Never |
+| Status change | Never | Only if `notify_on_updates = true` |
+| Admin comment | Never | Only if `notify_on_updates = true` |
+
+---
+
+## Next Step
+
+Please provide your **RESEND_API_KEY** so I can add it to your secrets and implement all these changes.
+
