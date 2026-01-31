@@ -55,7 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { type, feedback, appName, appSlug, comment }: NotificationRequest = await req.json();
-    const feedbackUrl = `https://featurevoting.tobibechtold.dev/app/${appSlug}/feedback/${feedback.id}`;
+    const feedbackUrl = `https://featurevoting.tobibechtold.dev/app/${appSlug}/${feedback.id}`;
     const feedbackTypeLabel = feedback.type === "feature" ? "Feature Request" : "Bug Report";
 
     let emailResponse;
