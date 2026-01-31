@@ -11,12 +11,12 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { Link, useNavigate } from 'react-router-dom';
 
 export function Header() {
-  const { theme, setTheme, language, setLanguage, isAdmin, setIsAdmin } = useApp();
+  const { theme, setTheme, language, setLanguage, isAdmin, signOut } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    setIsAdmin(false);
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
   };
 

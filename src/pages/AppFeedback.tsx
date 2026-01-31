@@ -6,6 +6,7 @@ import { FeedbackCard } from '@/components/FeedbackCard';
 import { CreateFeedbackDialog } from '@/components/CreateFeedbackDialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +14,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTranslation } from '@/hooks/useTranslation';
-import { mockApps, mockFeedback, mockComments, getVotedItems, addVotedItem } from '@/lib/mockData';
-import { FeedbackType, FeedbackStatus, FeedbackItem } from '@/types';
+import { useApp as useAppData } from '@/hooks/useApps';
+import { useFeedback, useVotedItems, useVote, useCreateFeedback } from '@/hooks/useFeedback';
+
+import { FeedbackType, FeedbackStatus } from '@/types';
 
 type FilterType = 'all' | 'feature' | 'bug';
 
@@ -22,19 +25,21 @@ export default function AppFeedback() {
   const { slug } = useParams<{ slug: string }>();
   const { t } = useTranslation();
   
-  const [feedback, setFeedback] = useState<FeedbackItem[]>(mockFeedback);
-  const [votedItems, setVotedItems] = useState<Set<string>>(getVotedItems);
+  const { data: app, isLoading: appLoading } = useAppData(slug);
+  const { data: feedback, isLoading: feedbackLoading } = useFeedback(app?.id);
+  const { data: votedItems } = useVotedItems();
+  const vote = useVote();
+  const createFeedback = useCreateFeedback();
+  
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [filterStatus, setFilterStatus] = useState<FeedbackStatus[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<FeedbackType>('feature');
 
-  const app = mockApps.find((a) => a.slug === slug);
-
-  const appFeedback = useMemo(() => {
-    if (!app) return [];
+  const filteredFeedback = useMemo(() => {
+    if (!feedback) return [];
     
-    let items = feedback.filter((f) => f.app_id === app.id);
+    let items = [...feedback];
     
     if (filterType !== 'all') {
       items = items.filter((f) => f.type === filterType);
@@ -44,40 +49,22 @@ export default function AppFeedback() {
       items = items.filter((f) => filterStatus.includes(f.status));
     }
     
-    // Sort by vote count descending
-    return items.sort((a, b) => b.vote_count - a.vote_count);
-  }, [app, feedback, filterType, filterStatus]);
-
-  const getCommentCount = (feedbackId: string) => {
-    return mockComments.filter((c) => c.feedback_id === feedbackId).length;
-  };
+    return items;
+  }, [feedback, filterType, filterStatus]);
 
   const handleVote = (id: string) => {
-    if (votedItems.has(id)) return;
-    
-    setFeedback((prev) =>
-      prev.map((f) =>
-        f.id === id ? { ...f, vote_count: f.vote_count + 1 } : f
-      )
-    );
-    setVotedItems((prev) => new Set([...prev, id]));
-    addVotedItem(id);
+    if (votedItems?.has(id)) return;
+    vote.mutate(id);
   };
 
-  const handleCreateFeedback = (data: { title: string; description: string; type: FeedbackType }) => {
-    const newItem: FeedbackItem = {
-      id: String(Date.now()),
-      app_id: app!.id,
+  const handleCreateFeedback = async (data: { title: string; description: string; type: FeedbackType }) => {
+    if (!app) return;
+    await createFeedback.mutateAsync({
+      app_id: app.id,
       type: data.type,
       title: data.title,
       description: data.description,
-      status: 'open',
-      vote_count: 1,
-      created_at: new Date().toISOString(),
-    };
-    setFeedback((prev) => [newItem, ...prev]);
-    setVotedItems((prev) => new Set([...prev, newItem.id]));
-    addVotedItem(newItem.id);
+    });
   };
 
   const openCreateDialog = (type: FeedbackType) => {
@@ -92,6 +79,26 @@ export default function AppFeedback() {
         : [...prev, status]
     );
   };
+
+  if (appLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-8">
+          <div className="max-w-4xl mx-auto">
+            <Skeleton className="h-8 w-32 mb-4" />
+            <Skeleton className="h-12 w-64 mb-2" />
+            <Skeleton className="h-6 w-96 mb-8" />
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (!app) {
     return (
@@ -201,23 +208,28 @@ export default function AppFeedback() {
 
           {/* Feedback List */}
           <div className="space-y-4">
-            {appFeedback.map((item, index) => (
-              <div
-                key={item.id}
-                className="animate-fade-in"
-                style={{ animationDelay: `${(index + 2) * 50}ms` }}
-              >
-                <FeedbackCard
-                  item={item}
-                  appSlug={slug!}
-                  voted={votedItems.has(item.id)}
-                  onVote={handleVote}
-                  commentCount={getCommentCount(item.id)}
-                />
-              </div>
-            ))}
+            {feedbackLoading ? (
+              [1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))
+            ) : (
+              filteredFeedback.map((item, index) => (
+                <div
+                  key={item.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${(index + 2) * 50}ms` }}
+                >
+                  <FeedbackCard
+                    item={item}
+                    appSlug={slug!}
+                    voted={votedItems?.has(item.id) || false}
+                    onVote={handleVote}
+                  />
+                </div>
+              ))
+            )}
             
-            {appFeedback.length === 0 && (
+            {!feedbackLoading && filteredFeedback.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-muted-foreground">
                   No feedback yet. Be the first to submit!

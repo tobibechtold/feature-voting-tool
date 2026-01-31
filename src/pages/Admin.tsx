@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -35,14 +36,20 @@ import {
 } from '@/components/ui/table';
 import { useApp } from '@/contexts/AppContext';
 import { useTranslation } from '@/hooks/useTranslation';
-import { mockApps } from '@/lib/mockData';
+import { useApps, useCreateApp, useUpdateApp, useDeleteApp } from '@/hooks/useApps';
+import { useToast } from '@/hooks/use-toast';
 import { App } from '@/types';
 
 export default function Admin() {
-  const { isAdmin } = useApp();
+  const { isAdmin, authLoading } = useApp();
   const { t } = useTranslation();
+  const { toast } = useToast();
   
-  const [apps, setApps] = useState<App[]>(mockApps);
+  const { data: apps, isLoading } = useApps();
+  const createApp = useCreateApp();
+  const updateApp = useUpdateApp();
+  const deleteApp = useDeleteApp();
+  
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<App | null>(null);
@@ -53,6 +60,17 @@ export default function Admin() {
     slug: '',
     description: '',
   });
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-8">
+          <Skeleton className="h-96 w-full max-w-5xl mx-auto" />
+        </main>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return <Navigate to="/login" replace />;
@@ -74,36 +92,50 @@ export default function Admin() {
     setDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingApp) {
-      setApps((prev) =>
-        prev.map((app) =>
-          app.id === editingApp.id
-            ? { ...app, ...formData }
-            : app
-        )
-      );
-    } else {
-      const newApp: App = {
-        id: String(Date.now()),
-        name: formData.name,
-        slug: formData.slug.toLowerCase().replace(/\s+/g, '-'),
-        description: formData.description || null,
-        created_at: new Date().toISOString(),
-      };
-      setApps((prev) => [...prev, newApp]);
+    try {
+      if (editingApp) {
+        await updateApp.mutateAsync({
+          id: editingApp.id,
+          name: formData.name,
+          slug: formData.slug.toLowerCase().replace(/\s+/g, '-'),
+          description: formData.description || null,
+        });
+        toast({ title: t('appUpdated') });
+      } else {
+        await createApp.mutateAsync({
+          name: formData.name,
+          slug: formData.slug.toLowerCase().replace(/\s+/g, '-'),
+          description: formData.description || null,
+        });
+        toast({ title: t('appCreated') });
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
     }
-    
-    setDialogOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deletingApp) {
-      setApps((prev) => prev.filter((app) => app.id !== deletingApp.id));
-      setDeleteDialogOpen(false);
-      setDeletingApp(null);
+      try {
+        await deleteApp.mutateAsync(deletingApp.id);
+        toast({ title: t('appDeleted') });
+        setDeleteDialogOpen(false);
+        setDeletingApp(null);
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: (error as Error).message,
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -147,66 +179,74 @@ export default function Admin() {
               <CardTitle>{t('manageApps')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('appName')}</TableHead>
-                    <TableHead>{t('appSlug')}</TableHead>
-                    <TableHead>{t('appDescription')}</TableHead>
-                    <TableHead className="w-[120px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {apps.map((app) => (
-                    <TableRow key={app.id}>
-                      <TableCell className="font-medium">{app.name}</TableCell>
-                      <TableCell>
-                        <code className="text-sm bg-muted px-2 py-1 rounded">
-                          {app.slug}
-                        </code>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {app.description || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                          >
-                            <Link to={`/app/${app.slug}`}>
-                              <ExternalLink className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDialog(app)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => confirmDelete(app)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
                   ))}
-                  
-                  {apps.length === 0 && (
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                        {t('noApps')}
-                      </TableCell>
+                      <TableHead>{t('appName')}</TableHead>
+                      <TableHead>{t('appSlug')}</TableHead>
+                      <TableHead>{t('appDescription')}</TableHead>
+                      <TableHead className="w-[120px]">Actions</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {apps?.map((app) => (
+                      <TableRow key={app.id}>
+                        <TableCell className="font-medium">{app.name}</TableCell>
+                        <TableCell>
+                          <code className="text-sm bg-muted px-2 py-1 rounded">
+                            {app.slug}
+                          </code>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {app.description || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              asChild
+                            >
+                              <Link to={`/app/${app.slug}`}>
+                                <ExternalLink className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDialog(app)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => confirmDelete(app)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    
+                    {(!apps || apps.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          {t('noApps')}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -276,7 +316,7 @@ export default function Admin() {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 {t('cancel')}
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={createApp.isPending || updateApp.isPending}>
                 {t('save')}
               </Button>
             </DialogFooter>
@@ -299,6 +339,7 @@ export default function Admin() {
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteApp.isPending}
             >
               {t('delete')}
             </AlertDialogAction>

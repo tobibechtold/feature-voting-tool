@@ -5,13 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { VoteButton } from '@/components/VoteButton';
 import { FeedbackItem } from '@/types';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useCommentCount } from '@/hooks/useComments';
 
 interface FeedbackCardProps {
   item: FeedbackItem;
   appSlug: string;
   voted: boolean;
   onVote: (id: string) => void;
-  commentCount?: number;
 }
 
 export function FeedbackCard({
@@ -19,9 +19,9 @@ export function FeedbackCard({
   appSlug,
   voted,
   onVote,
-  commentCount = 0,
 }: FeedbackCardProps) {
   const { t } = useTranslation();
+  const { data: commentCount = 0 } = useCommentCount(item.id);
 
   const getStatusLabel = () => {
     switch (item.status) {
@@ -52,7 +52,7 @@ export function FeedbackCard({
                 <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
                   {item.type === 'feature' ? t('feature') : t('bug')}
                 </Badge>
-                <Badge variant={item.status as any}>
+                <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed'}>
                   {getStatusLabel()}
                 </Badge>
               </div>
