@@ -115,6 +115,19 @@ export function useVote() {
   
   return useMutation({
     mutationFn: async (feedbackId: string) => {
+      // Check if already voted (fresh DB validation)
+      const { data: existingVote } = await supabase
+        .from('votes')
+        .select('id')
+        .eq('feedback_id', feedbackId)
+        .eq('voter_id', voterId)
+        .maybeSingle();
+
+      if (existingVote) {
+        // Already voted - skip silently (not an error)
+        return;
+      }
+
       // Insert vote
       const { error: voteError } = await supabase
         .from('votes')
