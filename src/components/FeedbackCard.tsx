@@ -59,6 +59,11 @@ export function FeedbackCard({
                 <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed'}>
                   {getStatusLabel()}
                 </Badge>
+                {item.version && (
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    v{item.version.replace(/^v/, '')}
+                  </Badge>
+                )}
               </div>
               
               <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-1 line-clamp-1">
