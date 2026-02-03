@@ -230,122 +230,123 @@ export default function FeedbackDetail() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex-1 min-w-0">
-                  {/* Header row with badges and heart */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
-                        {item.type === 'feature' ? t('feature') : t('bug')}
+                  {/* Header row with badges */}
+                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
+                      {item.type === 'feature' ? t('feature') : t('bug')}
+                    </Badge>
+                    
+                    {isAdmin ? (
+                      <StatusSelect
+                        value={item.status}
+                        onValueChange={handleStatusChange}
+                      />
+                    ) : (
+                      <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed'}>
+                        {getStatusLabel(item.status)}
                       </Badge>
-                      
-                      {isAdmin ? (
-                        <StatusSelect
-                          value={item.status}
-                          onValueChange={handleStatusChange}
-                        />
+                    )}
+                  </div>
+                    
+                  <h1 className="text-2xl font-bold mb-4">{item.title}</h1>
+                    
+                  <p className="text-muted-foreground whitespace-pre-wrap">
+                    {item.description}
+                  </p>
+                    
+                  {/* Admin-only: show submitter email if available */}
+                  {isAdmin && item.submitter_email && (
+                    <div className="mt-4 flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">{t('submitterEmail')}:</span>
+                      <a 
+                        href={`mailto:${item.submitter_email}`}
+                        className="text-primary hover:underline"
+                      >
+                        {item.submitter_email}
+                      </a>
+                    </div>
+                  )}
+                    
+                  {/* Admin-only: Version assignment */}
+                  {isAdmin && (
+                    <div className="mt-4 flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-muted-foreground" />
+                      {isEditingVersion ? (
+                        <>
+                          <Input
+                            value={versionInput}
+                            onChange={(e) => setVersionInput(e.target.value)}
+                            placeholder={t('versionPlaceholder')}
+                            className="w-32 h-8"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              await updateVersion.mutateAsync({ 
+                                id: item.id, 
+                                version: versionInput.trim() || null 
+                              });
+                              setIsEditingVersion(false);
+                            }}
+                            disabled={updateVersion.isPending}
+                          >
+                            {t('save')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setVersionInput(item.version || '');
+                              setIsEditingVersion(false);
+                            }}
+                          >
+                            {t('cancel')}
+                          </Button>
+                        </>
                       ) : (
-                        <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed'}>
-                          {getStatusLabel(item.status)}
-                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setVersionInput(item.version || '');
+                            setIsEditingVersion(true);
+                          }}
+                        >
+                          {item.version ? (
+                            <>{t('version')}: <span className="font-mono ml-1">{item.version}</span></>
+                          ) : (
+                            t('setVersion')
+                          )}
+                        </Button>
                       )}
                     </div>
+                  )}
+                    
+                  {/* Show version badge for non-admins if version is set */}
+                  {!isAdmin && item.version && (
+                    <div className="mt-4 flex items-center gap-2 text-sm">
+                      <Tag className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">{t('includedInVersion')}:</span>
+                      <span className="font-mono">{item.version}</span>
+                    </div>
+                  )}
+                    
+                  {/* Footer: heart + timestamp */}
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
                     <VoteButton
                       count={item.vote_count}
                       voted={votedItems?.has(item.id) || false}
                       onVote={handleVote}
                       disabled={item.status === 'completed'}
                     />
-                  </div>
-                    
-                    <h1 className="text-2xl font-bold mb-4">{item.title}</h1>
-                    
-                    <p className="text-muted-foreground whitespace-pre-wrap">
-                      {item.description}
+                    <p className="text-sm text-muted-foreground">
+                      {formatDistanceToNow(new Date(item.created_at), {
+                        addSuffix: true,
+                        locale: dateLocale,
+                      })}
                     </p>
-                    
-                    {/* Admin-only: show submitter email if available */}
-                    {isAdmin && item.submitter_email && (
-                      <div className="mt-4 flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">{t('submitterEmail')}:</span>
-                        <a 
-                          href={`mailto:${item.submitter_email}`}
-                          className="text-primary hover:underline"
-                        >
-                          {item.submitter_email}
-                        </a>
-                      </div>
-                    )}
-                    
-                    {/* Admin-only: Version assignment */}
-                    {isAdmin && (
-                      <div className="mt-4 flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-muted-foreground" />
-                        {isEditingVersion ? (
-                          <>
-                            <Input
-                              value={versionInput}
-                              onChange={(e) => setVersionInput(e.target.value)}
-                              placeholder={t('versionPlaceholder')}
-                              className="w-32 h-8"
-                            />
-                            <Button
-                              size="sm"
-                              onClick={async () => {
-                                await updateVersion.mutateAsync({ 
-                                  id: item.id, 
-                                  version: versionInput.trim() || null 
-                                });
-                                setIsEditingVersion(false);
-                              }}
-                              disabled={updateVersion.isPending}
-                            >
-                              {t('save')}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setVersionInput(item.version || '');
-                                setIsEditingVersion(false);
-                              }}
-                            >
-                              {t('cancel')}
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-muted-foreground hover:text-foreground"
-                            onClick={() => {
-                              setVersionInput(item.version || '');
-                              setIsEditingVersion(true);
-                            }}
-                          >
-                            {item.version ? (
-                              <>{t('version')}: <span className="font-mono ml-1">{item.version}</span></>
-                            ) : (
-                              t('setVersion')
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* Show version badge for non-admins if version is set */}
-                    {!isAdmin && item.version && (
-                      <div className="mt-4 flex items-center gap-2 text-sm">
-                        <Tag className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">{t('includedInVersion')}:</span>
-                        <span className="font-mono">{item.version}</span>
-                      </div>
-                    )}
-                    
-                  <p className="text-sm text-muted-foreground mt-4">
-                    {formatDistanceToNow(new Date(item.created_at), {
-                      addSuffix: true,
-                      locale: dateLocale,
-                    })}
-                  </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
