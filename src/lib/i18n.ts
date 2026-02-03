@@ -127,6 +127,9 @@ export const translations = {
     captchaFailed: 'Verification failed. Please try again.',
     commentSubmitted: 'Comment submitted successfully',
     postComment: 'Post Comment',
+    deleteComment: 'Delete Comment',
+    confirmDeleteComment: 'Are you sure you want to delete this comment? This action cannot be undone.',
+    commentDeleted: 'Comment deleted successfully',
   },
   de: {
     // Common
@@ -254,6 +257,9 @@ export const translations = {
     captchaFailed: 'Verifizierung fehlgeschlagen. Bitte erneut versuchen.',
     commentSubmitted: 'Kommentar erfolgreich eingereicht',
     postComment: 'Kommentar senden',
+    deleteComment: 'Kommentar löschen',
+    confirmDeleteComment: 'Möchtest du diesen Kommentar wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+    commentDeleted: 'Kommentar erfolgreich gelöscht',
   },
 } as const;
 

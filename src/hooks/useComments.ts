@@ -187,3 +187,22 @@ export function useCreateUserComment() {
     },
   });
 }
+
+export function useDeleteComment() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ commentId, feedbackId }: { commentId: string; feedbackId: string }) => {
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId);
+      
+      if (error) throw error;
+      return { commentId, feedbackId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['comments', data.feedbackId] });
+    },
+  });
+}
