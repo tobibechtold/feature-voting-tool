@@ -611,9 +611,17 @@ export default function FeedbackDetail() {
             <AlertDialogAction
               onClick={async () => {
                 if (deleteCommentId && id) {
-                  await deleteComment.mutateAsync({ commentId: deleteCommentId, feedbackId: id });
-                  setDeleteCommentId(null);
-                  toast({ title: t('commentDeleted') });
+                  try {
+                    await deleteComment.mutateAsync({ commentId: deleteCommentId, feedbackId: id });
+                    setDeleteCommentId(null);
+                    toast({ title: t('commentDeleted') });
+                  } catch (error) {
+                    toast({
+                      title: 'Error',
+                      description: (error as Error).message,
+                      variant: 'destructive',
+                    });
+                  }
                 }
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
