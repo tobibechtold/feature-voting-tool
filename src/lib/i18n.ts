@@ -107,6 +107,14 @@ export const translations = {
     emailPlaceholder: 'your@email.com',
     notifyOnUpdates: 'Notify me about status changes and replies',
     submitterEmail: 'Submitter Email',
+    
+    // Changelog & Version
+    changelog: 'Changelog',
+    version: 'Version',
+    versionPlaceholder: 'e.g., 1.2.0',
+    setVersion: 'Set Version',
+    noVersionedItems: 'No versioned items yet',
+    includedInVersion: 'Included in version',
   },
   de: {
     // Common
@@ -214,6 +222,14 @@ export const translations = {
     emailPlaceholder: 'deine@email.de',
     notifyOnUpdates: 'Bei Statusänderungen und Antworten benachrichtigen',
     submitterEmail: 'E-Mail des Einreichers',
+    
+    // Changelog & Version
+    changelog: 'Changelog',
+    version: 'Version',
+    versionPlaceholder: 'z.B. 1.2.0',
+    setVersion: 'Version setzen',
+    noVersionedItems: 'Noch keine versionierten Einträge',
+    includedInVersion: 'Enthalten in Version',
   },
 } as const;
 

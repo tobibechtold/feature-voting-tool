@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, User, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, User, ShieldCheck, Trash2, Tag } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { VoteButton } from '@/components/VoteButton';
 import { StatusSelect } from '@/components/StatusSelect';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,7 +26,7 @@ import { QueryErrorState } from '@/components/QueryErrorState';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApp } from '@/contexts/AppContext';
 import { useApp as useAppData } from '@/hooks/useApps';
-import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback } from '@/hooks/useFeedback';
+import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback, useUpdateFeedbackVersion } from '@/hooks/useFeedback';
 import { useComments, useCreateComment } from '@/hooks/useComments';
 import { useToast } from '@/hooks/use-toast';
 import { FeedbackStatus } from '@/types';
@@ -45,11 +46,14 @@ export default function FeedbackDetail() {
   const { data: votedItems } = useVotedItems();
   const vote = useVote();
   const updateStatus = useUpdateFeedbackStatus();
+  const updateVersion = useUpdateFeedbackVersion();
   const createComment = useCreateComment();
   const deleteFeedback = useDeleteFeedback();
   
   const [newComment, setNewComment] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [versionInput, setVersionInput] = useState('');
+  const [isEditingVersion, setIsEditingVersion] = useState(false);
 
   const dateLocale = language === 'de' ? de : enUS;
 
@@ -266,6 +270,71 @@ export default function FeedbackDetail() {
                         >
                           {item.submitter_email}
                         </a>
+                      </div>
+                    )}
+                    
+                    {/* Admin-only: Version assignment */}
+                    {isAdmin && (
+                      <div className="mt-4 flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-muted-foreground" />
+                        {isEditingVersion ? (
+                          <>
+                            <Input
+                              value={versionInput}
+                              onChange={(e) => setVersionInput(e.target.value)}
+                              placeholder={t('versionPlaceholder')}
+                              className="w-32 h-8"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={async () => {
+                                await updateVersion.mutateAsync({ 
+                                  id: item.id, 
+                                  version: versionInput.trim() || null 
+                                });
+                                setIsEditingVersion(false);
+                              }}
+                              disabled={updateVersion.isPending}
+                            >
+                              {t('save')}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setVersionInput(item.version || '');
+                                setIsEditingVersion(false);
+                              }}
+                            >
+                              {t('cancel')}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setVersionInput(item.version || '');
+                              setIsEditingVersion(true);
+                            }}
+                          >
+                            {item.version ? (
+                              <>{t('version')}: <span className="font-mono ml-1">{item.version}</span></>
+                            ) : (
+                              t('setVersion')
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Show version badge for non-admins if version is set */}
+                    {!isAdmin && item.version && (
+                      <div className="mt-4 flex items-center gap-2 text-sm">
+                        <Tag className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">{t('includedInVersion')}:</span>
+                        <span className="font-mono">{item.version}</span>
                       </div>
                     )}
                     

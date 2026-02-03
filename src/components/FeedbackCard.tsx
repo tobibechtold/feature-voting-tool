@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { VoteButton } from '@/components/VoteButton';
 import { FeedbackItem } from '@/types';
+import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useCommentCount } from '@/hooks/useComments';
 
@@ -38,7 +39,10 @@ export function FeedbackCard({
 
   return (
     <Link to={`/app/${appSlug}/${item.id}`}>
-      <Card className="group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20">
+      <Card className={cn(
+        "group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20",
+        item.status === 'completed' && "opacity-60"
+      )}>
         <CardContent className="p-4">
           <div className="flex gap-4">
             <VoteButton
