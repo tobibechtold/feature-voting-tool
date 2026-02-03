@@ -344,25 +344,27 @@ export default function Changelog() {
                             <li key={item.id}>
                               <Link 
                                 to={`/app/${slug}/${item.id}`}
-                                className="flex items-start gap-3 group hover:bg-muted/50 -mx-2 px-2 py-2 rounded-md transition-colors"
+                                className="flex flex-col gap-2 group hover:bg-muted/50 -mx-2 px-2 py-2 rounded-md transition-colors"
                               >
-                                {item.type === 'feature' ? (
-                                  <Badge variant="feature" className="mt-0.5 shrink-0">
-                                    <Lightbulb className="h-3 w-3 mr-1" />
-                                    {t('feature')}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {item.type === 'feature' ? (
+                                    <Badge variant="feature" className="shrink-0">
+                                      <Lightbulb className="h-3 w-3 mr-1" />
+                                      {t('feature')}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="bug" className="shrink-0">
+                                      <Bug className="h-3 w-3 mr-1" />
+                                      {t('bug')}
+                                    </Badge>
+                                  )}
+                                  <Badge 
+                                    variant={item.status as 'open' | 'planned' | 'progress' | 'completed'} 
+                                    className="shrink-0"
+                                  >
+                                    {getStatusLabel(item.status)}
                                   </Badge>
-                                ) : (
-                                  <Badge variant="bug" className="mt-0.5 shrink-0">
-                                    <Bug className="h-3 w-3 mr-1" />
-                                    {t('bug')}
-                                  </Badge>
-                                )}
-                                <Badge 
-                                  variant={item.status as 'open' | 'planned' | 'progress' | 'completed'} 
-                                  className="mt-0.5 shrink-0"
-                                >
-                                  {getStatusLabel(item.status)}
-                                </Badge>
+                                </div>
                                 <span className="text-foreground group-hover:text-primary transition-colors">
                                   {item.title}
                                 </span>
