@@ -32,6 +32,8 @@ export function FeedbackCard({
         return t('statusProgress');
       case 'completed':
         return t('statusCompleted');
+      case 'wont_do':
+        return t('statusWontDo');
       default:
         return t('statusOpen');
     }
@@ -41,7 +43,7 @@ export function FeedbackCard({
     <Link to={`/app/${appSlug}/${item.id}`}>
       <Card className={cn(
         "group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20",
-        item.status === 'completed' && "opacity-60"
+        (item.status === 'completed' || item.status === 'wont_do') && "opacity-60"
       )}>
         <CardContent className="p-4">
           <div className="flex flex-col gap-2">
@@ -50,7 +52,7 @@ export function FeedbackCard({
               <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
                 {item.type === 'feature' ? t('feature') : t('bug')}
               </Badge>
-              <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed'}>
+              <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed' | 'wont_do'}>
                 {getStatusLabel()}
               </Badge>
               {item.version && (
@@ -75,7 +77,7 @@ export function FeedbackCard({
                 count={item.vote_count}
                 voted={voted}
                 onVote={() => onVote(item.id)}
-                disabled={item.status === 'completed'}
+                disabled={item.status === 'completed' || item.status === 'wont_do'}
               />
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <MessageSquare className="h-4 w-4" />

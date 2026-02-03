@@ -36,6 +36,7 @@ export const translations = {
     statusProgress: 'In Progress',
     statusCompleted: 'Completed',
     statusOpen: 'Open',
+    statusWontDo: "Won't Do",
     
     // Voting
     vote: 'Vote',
@@ -155,6 +156,7 @@ export const translations = {
     statusProgress: 'In Arbeit',
     statusCompleted: 'Abgeschlossen',
     statusOpen: 'Offen',
+    statusWontDo: 'Wird nicht umgesetzt',
     
     // Voting
     vote: 'Abstimmen',

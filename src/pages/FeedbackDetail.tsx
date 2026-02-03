@@ -110,6 +110,8 @@ export default function FeedbackDetail() {
         return t('statusProgress');
       case 'completed':
         return t('statusCompleted');
+      case 'wont_do':
+        return t('statusWontDo');
       default:
         return t('statusOpen');
     }
@@ -242,7 +244,7 @@ export default function FeedbackDetail() {
                         onValueChange={handleStatusChange}
                       />
                     ) : (
-                      <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed'}>
+                      <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed' | 'wont_do'}>
                         {getStatusLabel(item.status)}
                       </Badge>
                     )}
@@ -338,7 +340,7 @@ export default function FeedbackDetail() {
                       count={item.vote_count}
                       voted={votedItems?.has(item.id) || false}
                       onVote={handleVote}
-                      disabled={item.status === 'completed'}
+                      disabled={item.status === 'completed' || item.status === 'wont_do'}
                     />
                     <p className="text-sm text-muted-foreground">
                       {formatDistanceToNow(new Date(item.created_at), {

@@ -17,6 +17,7 @@ const badgeVariants = cva(
         planned: "border-transparent bg-status-planned-bg text-status-planned",
         progress: "border-transparent bg-status-progress-bg text-status-progress",
         completed: "border-transparent bg-status-completed-bg text-status-completed",
+        wont_do: "border-transparent bg-muted text-muted-foreground",
         open: "border-transparent bg-muted text-muted-foreground",
       },
     },
