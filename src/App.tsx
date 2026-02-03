@@ -15,8 +15,8 @@ import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
-// Replace with your reCAPTCHA v3 site key
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
+// reCAPTCHA v3 site key (public)
+const RECAPTCHA_SITE_KEY = "6LdXeV8sAAAAADYg817vM98uVUKU_UcCoZX1WFNB";
 
 const App = () => (
   <GoogleReCaptchaProvider reCaptchaKey={RECAPTCHA_SITE_KEY}>
