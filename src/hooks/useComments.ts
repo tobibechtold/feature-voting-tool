@@ -193,12 +193,21 @@ export function useDeleteComment() {
   
   return useMutation({
     mutationFn: async ({ commentId, feedbackId }: { commentId: string; feedbackId: string }) => {
-      const { error } = await publicSupabase
+      // IMPORTANT: Must use authenticated client so the admin JWT is sent.
+      // If we use the public client, PostgREST may return 204 even though 0 rows were deleted (RLS filtered).
+      const { data, error } = await supabase
         .from('comments')
         .delete()
-        .eq('id', commentId);
-      
+        .eq('id', commentId)
+        .select('id');
+
       if (error) throw error;
+
+      // If RLS prevents deletion, PostgREST can behave as “0 rows matched” rather than an error.
+      if (!data || data.length === 0) {
+        throw new Error('Not authorized to delete this comment');
+      }
+
       return { commentId, feedbackId };
     },
     onSuccess: (data) => {
