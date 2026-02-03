@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Lightbulb, Bug, Filter, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Bug, Filter, RefreshCw, FileText } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { FeedbackCard } from '@/components/FeedbackCard';
 import { CreateFeedbackDialog } from '@/components/CreateFeedbackDialog';
@@ -50,6 +50,17 @@ export default function AppFeedback() {
     if (filterStatus.length > 0) {
       items = items.filter((f) => filterStatus.includes(f.status));
     }
+    
+    // Sort: non-completed first (by votes), then completed (by votes)
+    items.sort((a, b) => {
+      const aCompleted = a.status === 'completed';
+      const bCompleted = b.status === 'completed';
+      
+      if (aCompleted !== bCompleted) {
+        return aCompleted ? 1 : -1; // Completed at bottom
+      }
+      return b.vote_count - a.vote_count; // Within group, sort by votes
+    });
     
     return items;
   }, [feedback, filterType, filterStatus]);
@@ -205,6 +216,12 @@ export default function AppFeedback() {
               </div>
               
               <div className="flex gap-2">
+                <Button variant="outline" asChild>
+                  <Link to={`/app/${slug}/changelog`}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    {t('changelog')}
+                  </Link>
+                </Button>
                 <Button variant="feature" onClick={() => openCreateDialog('feature')}>
                   <Lightbulb className="h-4 w-4 mr-2" />
                   {t('createFeature')}

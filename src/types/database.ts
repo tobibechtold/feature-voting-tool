@@ -47,6 +47,7 @@ export type Database = {
           created_at: string
           submitter_email: string | null
           notify_on_updates: boolean
+          version: string | null
         }
         Insert: {
           id?: string
@@ -59,6 +60,7 @@ export type Database = {
           created_at?: string
           submitter_email?: string | null
           notify_on_updates?: boolean
+          version?: string | null
         }
         Update: {
           id?: string
@@ -71,6 +73,7 @@ export type Database = {
           created_at?: string
           submitter_email?: string | null
           notify_on_updates?: boolean
+          version?: string | null
         }
       }
       votes: {
