@@ -1,5 +1,4 @@
-import { ChevronUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VoteButtonProps {
@@ -11,9 +10,7 @@ interface VoteButtonProps {
 
 export function VoteButton({ count, voted, onVote, disabled }: VoteButtonProps) {
   return (
-    <Button
-      variant={voted ? 'voteActive' : 'vote'}
-      size="vote"
+    <button
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -21,17 +18,25 @@ export function VoteButton({ count, voted, onVote, disabled }: VoteButtonProps) 
       }}
       disabled={disabled}
       className={cn(
-        'group transition-all duration-300',
-        voted && 'animate-vote-pop'
+        'flex items-center gap-1.5 transition-all duration-200',
+        'hover:scale-105 active:scale-95',
+        disabled && 'opacity-50 pointer-events-none'
       )}
     >
-      <ChevronUp
+      <Heart
         className={cn(
-          'h-5 w-5 transition-transform',
-          !voted && 'group-hover:-translate-y-0.5'
+          'h-5 w-5 transition-all duration-200',
+          voted 
+            ? 'fill-destructive text-destructive animate-vote-pop' 
+            : 'text-muted-foreground hover:text-destructive/70'
         )}
       />
-      <span className="text-lg font-bold">{count}</span>
-    </Button>
+      <span className={cn(
+        'text-sm font-semibold',
+        voted ? 'text-destructive' : 'text-muted-foreground'
+      )}>
+        {count}
+      </span>
+    </button>
   );
 }
