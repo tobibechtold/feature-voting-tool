@@ -136,6 +136,29 @@ export type Database = {
           role?: 'admin' | 'user'
         }
       }
+      version_releases: {
+        Row: {
+          id: string
+          app_id: string
+          version: string
+          released_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          app_id: string
+          version: string
+          released_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          app_id?: string
+          version?: string
+          released_at?: string | null
+          created_at?: string
+        }
+      }
     }
     Functions: {
       has_role: {

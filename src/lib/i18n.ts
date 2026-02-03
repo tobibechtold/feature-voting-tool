@@ -103,7 +103,6 @@ export const translations = {
     logoUploaded: 'Logo uploaded successfully',
     
     // Email notifications
-    emailOptional: 'Email (optional)',
     emailPlaceholder: 'your@email.com',
     notifyOnUpdates: 'Notify me about status changes and replies',
     submitterEmail: 'Submitter Email',
@@ -115,6 +114,11 @@ export const translations = {
     setVersion: 'Set Version',
     noVersionedItems: 'No versioned items yet',
     includedInVersion: 'Included in version',
+    released: 'Released',
+    unreleased: 'Unreleased',
+    releaseDate: 'Release Date',
+    setReleaseDate: 'Set Release Date',
+    markAsUnreleased: 'Mark as Unreleased',
   },
   de: {
     // Common
@@ -218,7 +222,6 @@ export const translations = {
     logoUploaded: 'Logo erfolgreich hochgeladen',
     
     // Email notifications
-    emailOptional: 'E-Mail (optional)',
     emailPlaceholder: 'deine@email.de',
     notifyOnUpdates: 'Bei Statusänderungen und Antworten benachrichtigen',
     submitterEmail: 'E-Mail des Einreichers',
@@ -230,6 +233,11 @@ export const translations = {
     setVersion: 'Version setzen',
     noVersionedItems: 'Noch keine versionierten Einträge',
     includedInVersion: 'Enthalten in Version',
+    released: 'Veröffentlicht',
+    unreleased: 'Unveröffentlicht',
+    releaseDate: 'Veröffentlichungsdatum',
+    setReleaseDate: 'Veröffentlichungsdatum setzen',
+    markAsUnreleased: 'Als unveröffentlicht markieren',
   },
 } as const;
 
