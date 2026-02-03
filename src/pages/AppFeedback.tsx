@@ -190,7 +190,7 @@ export default function AppFeedback() {
               {t('back')}
             </Link>
             
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                 {app.logo_url ? (
                   <img 
@@ -215,18 +215,19 @@ export default function AppFeedback() {
                 </div>
               </div>
               
-              <div className="flex gap-2">
-                <Button variant="outline" asChild>
+              {/* Buttons - stack on mobile, row on desktop */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button variant="outline" asChild className="w-full sm:w-auto">
                   <Link to={`/app/${slug}/changelog`}>
                     <FileText className="h-4 w-4 mr-2" />
                     {t('changelog')}
                   </Link>
                 </Button>
-                <Button variant="feature" onClick={() => openCreateDialog('feature')}>
+                <Button variant="feature" onClick={() => openCreateDialog('feature')} className="w-full sm:w-auto">
                   <Lightbulb className="h-4 w-4 mr-2" />
                   {t('createFeature')}
                 </Button>
-                <Button variant="bug" onClick={() => openCreateDialog('bug')}>
+                <Button variant="bug" onClick={() => openCreateDialog('bug')} className="w-full sm:w-auto">
                   <Bug className="h-4 w-4 mr-2" />
                   {t('createBug')}
                 </Button>

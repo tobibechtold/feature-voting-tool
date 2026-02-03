@@ -44,15 +44,10 @@ export function FeedbackCard({
         item.status === 'completed' && "opacity-60"
       )}>
         <CardContent className="p-4">
-          <div className="flex gap-4">
-            <VoteButton
-              count={item.vote_count}
-              voted={voted}
-              onVote={() => onVote(item.id)}
-            />
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <div className="flex flex-col gap-2">
+            {/* Header row: badges + heart */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
                   {item.type === 'feature' ? t('feature') : t('bug')}
                 </Badge>
@@ -65,21 +60,26 @@ export function FeedbackCard({
                   </Badge>
                 )}
               </div>
-              
-              <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-1 line-clamp-1">
-                {item.title}
-              </h3>
-              
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {item.description}
-              </p>
-              
-              <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>{commentCount}</span>
-                </div>
-              </div>
+              <VoteButton
+                count={item.vote_count}
+                voted={voted}
+                onVote={() => onVote(item.id)}
+              />
+            </div>
+            
+            {/* Content */}
+            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+              {item.title}
+            </h3>
+            
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {item.description}
+            </p>
+            
+            {/* Footer: comments */}
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+              <MessageSquare className="h-4 w-4" />
+              <span>{commentCount}</span>
             </div>
           </div>
         </CardContent>
