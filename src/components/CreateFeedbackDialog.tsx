@@ -44,7 +44,7 @@ export function CreateFeedbackDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isValidEmail = (email: string) => {
-    if (!email) return true; // Empty is valid (optional field)
+    if (!email) return false; // Email is now required
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
@@ -139,31 +139,30 @@ export function CreateFeedbackDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">{t('emailOptional')}</Label>
+            <Label htmlFor="email">{t('email')}</Label>
             <Input
               id="email"
               type="email"
               placeholder={t('emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </div>
 
-          {email.trim() && (
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="notifyOnUpdates"
-                checked={notifyOnUpdates}
-                onCheckedChange={(checked) => setNotifyOnUpdates(checked === true)}
-              />
-              <Label 
-                htmlFor="notifyOnUpdates" 
-                className="text-sm font-normal cursor-pointer"
-              >
-                {t('notifyOnUpdates')}
-              </Label>
-            </div>
-          )}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="notifyOnUpdates"
+              checked={notifyOnUpdates}
+              onCheckedChange={(checked) => setNotifyOnUpdates(checked === true)}
+            />
+            <Label 
+              htmlFor="notifyOnUpdates" 
+              className="text-sm font-normal cursor-pointer"
+            >
+              {t('notifyOnUpdates')}
+            </Label>
+          </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <Button
@@ -176,7 +175,7 @@ export function CreateFeedbackDialog({
             <Button
               type="submit"
               variant={isFeature ? 'feature' : 'bug'}
-              disabled={isSubmitting || !title.trim() || !description.trim()}
+              disabled={isSubmitting || !title.trim() || !description.trim() || !isValidEmail(email)}
             >
               {t('submit')}
             </Button>

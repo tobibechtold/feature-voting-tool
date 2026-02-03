@@ -39,3 +39,11 @@ export interface Comment {
   is_admin: boolean;
   created_at: string;
 }
+
+export interface VersionRelease {
+  id: string;
+  app_id: string;
+  version: string;
+  released_at: string | null;
+  created_at: string;
+}
