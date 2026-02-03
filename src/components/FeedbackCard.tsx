@@ -69,8 +69,8 @@ export function FeedbackCard({
               {item.description}
             </p>
             
-            {/* Footer: heart + comments */}
-            <div className="flex items-center justify-between mt-1">
+            {/* Footer: heart + comments together on left */}
+            <div className="flex items-center gap-4 mt-1">
               <VoteButton
                 count={item.vote_count}
                 voted={voted}
