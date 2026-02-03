@@ -1,6 +1,6 @@
 export type FeedbackType = 'feature' | 'bug';
 
-export type FeedbackStatus = 'open' | 'planned' | 'progress' | 'completed';
+export type FeedbackStatus = 'open' | 'planned' | 'progress' | 'completed' | 'wont_do';
 
 export interface App {
   id: string;
