@@ -27,6 +27,7 @@ export function StatusSelect({ value, onValueChange, disabled }: StatusSelectPro
         <SelectItem value="planned">{t('statusPlanned')}</SelectItem>
         <SelectItem value="progress">{t('statusProgress')}</SelectItem>
         <SelectItem value="completed">{t('statusCompleted')}</SelectItem>
+        <SelectItem value="wont_do">{t('statusWontDo')}</SelectItem>
       </SelectContent>
     </Select>
   );
