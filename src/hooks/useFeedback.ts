@@ -323,3 +323,25 @@ export function useDeleteFeedback() {
     },
   });
 }
+
+export function useUpdateFeedbackVersion() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, version }: { id: string; version: string | null }) => {
+      const { data, error } = await supabase
+        .from('feedback')
+        .update({ version } as never)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as FeedbackItem;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feedback'] });
+      queryClient.invalidateQueries({ queryKey: ['changelog'] });
+    },
+  });
+}

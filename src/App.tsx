@@ -9,6 +9,7 @@ import { queryClient } from "@/lib/queryClient";
 import Index from "./pages/Index";
 import AppFeedback from "./pages/AppFeedback";
 import FeedbackDetail from "./pages/FeedbackDetail";
+import Changelog from "./pages/Changelog";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
@@ -24,6 +25,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/app/:slug" element={<AppFeedback />} />
+              <Route path="/app/:slug/changelog" element={<Changelog />} />
               <Route path="/app/:slug/:id" element={<FeedbackDetail />} />
               <Route path="/login" element={<Login />} />
               <Route path="/admin" element={<Admin />} />
