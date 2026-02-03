@@ -103,6 +103,8 @@ export type Database = {
           content: string
           is_admin: boolean
           created_at: string
+          commenter_email: string | null
+          notify_on_reply: boolean
         }
         Insert: {
           id?: string
@@ -110,6 +112,8 @@ export type Database = {
           content: string
           is_admin?: boolean
           created_at?: string
+          commenter_email?: string | null
+          notify_on_reply?: boolean
         }
         Update: {
           id?: string
@@ -117,6 +121,8 @@ export type Database = {
           content?: string
           is_admin?: boolean
           created_at?: string
+          commenter_email?: string | null
+          notify_on_reply?: boolean
         }
       }
       user_roles: {

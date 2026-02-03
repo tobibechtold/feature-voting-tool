@@ -1,2 +1,5 @@
 [functions.send-notification]
 verify_jwt = false
+
+[functions.verify-comment]
+verify_jwt = false

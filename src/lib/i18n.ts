@@ -120,6 +120,13 @@ export const translations = {
     releaseDate: 'Release Date',
     setReleaseDate: 'Set Release Date',
     markAsUnreleased: 'Mark as Unreleased',
+    
+    // User comments
+    yourEmail: 'Your email',
+    notifyOnReply: 'Notify me when an admin replies',
+    captchaFailed: 'Verification failed. Please try again.',
+    commentSubmitted: 'Comment submitted successfully',
+    postComment: 'Post Comment',
   },
   de: {
     // Common
@@ -240,6 +247,13 @@ export const translations = {
     releaseDate: 'Veröffentlichungsdatum',
     setReleaseDate: 'Veröffentlichungsdatum setzen',
     markAsUnreleased: 'Als unveröffentlicht markieren',
+    
+    // User comments
+    yourEmail: 'Deine E-Mail',
+    notifyOnReply: 'Benachrichtige mich bei Admin-Antworten',
+    captchaFailed: 'Verifizierung fehlgeschlagen. Bitte erneut versuchen.',
+    commentSubmitted: 'Kommentar erfolgreich eingereicht',
+    postComment: 'Kommentar senden',
   },
 } as const;
 

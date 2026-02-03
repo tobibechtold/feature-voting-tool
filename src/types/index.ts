@@ -38,6 +38,8 @@ export interface Comment {
   content: string;
   is_admin: boolean;
   created_at: string;
+  commenter_email?: string | null;
+  notify_on_reply?: boolean;
 }
 
 export interface VersionRelease {

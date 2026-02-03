@@ -34,7 +34,7 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "new_feedback" | "status_change" | "admin_comment";
+  type: "new_feedback" | "status_change" | "admin_comment" | "admin_reply_to_comment";
   feedback: {
     id: string;
     type: "feature" | "bug";
@@ -46,6 +46,7 @@ interface NotificationRequest {
   appName: string;
   appSlug: string;
   comment?: string;
+  commenterEmail?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -54,7 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { type, feedback, appName, appSlug, comment }: NotificationRequest = await req.json();
+    const { type, feedback, appName, appSlug, comment, commenterEmail }: NotificationRequest = await req.json();
     const feedbackUrl = `https://featurevoting.tobibechtold.dev/app/${appSlug}/${feedback.id}`;
     const feedbackTypeLabel = feedback.type === "feature" ? "Feature Request" : "Bug Report";
 
@@ -103,6 +104,19 @@ const handler = async (req: Request): Promise<Response> => {
         html: `
           <h2>New Reply</h2>
           <p>An admin has replied to your ${feedbackTypeLabel.toLowerCase()} "<strong>${feedback.title}</strong>".</p>
+          ${comment ? `<blockquote style="border-left: 3px solid #ccc; padding-left: 12px; margin: 16px 0;">${comment}</blockquote>` : ""}
+          <p><a href="${feedbackUrl}">View Conversation</a></p>
+        `,
+      });
+    } else if (type === "admin_reply_to_comment" && commenterEmail) {
+      // Notify user commenter when admin replies
+      emailResponse = await sendEmail({
+        from: "Feature Vote <noreply@featurevoting.tobibechtold.dev>",
+        to: [commenterEmail],
+        subject: `Admin replied on "${feedback.title}"`,
+        html: `
+          <h2>New Reply</h2>
+          <p>An admin has replied on the ${feedbackTypeLabel.toLowerCase()} "<strong>${feedback.title}</strong>" where you commented.</p>
           ${comment ? `<blockquote style="border-left: 3px solid #ccc; padding-left: 12px; margin: 16px 0;">${comment}</blockquote>` : ""}
           <p><a href="${feedbackUrl}">View Conversation</a></p>
         `,
