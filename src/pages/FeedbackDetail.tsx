@@ -30,7 +30,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useApp } from '@/contexts/AppContext';
 import { useApp as useAppData } from '@/hooks/useApps';
 import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback, useUpdateFeedbackVersion } from '@/hooks/useFeedback';
-import { useComments, useCreateComment, useCreateUserComment } from '@/hooks/useComments';
+import { useComments, useCreateComment, useCreateUserComment, useDeleteComment } from '@/hooks/useComments';
 import { useToast } from '@/hooks/use-toast';
 import { FeedbackStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -54,9 +54,11 @@ export default function FeedbackDetail() {
   const createComment = useCreateComment();
   const createUserComment = useCreateUserComment();
   const deleteFeedback = useDeleteFeedback();
+  const deleteComment = useDeleteComment();
   
   const [newComment, setNewComment] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
   const [versionInput, setVersionInput] = useState('');
   const [isEditingVersion, setIsEditingVersion] = useState(false);
   
@@ -471,6 +473,18 @@ export default function FeedbackDetail() {
                           </div>
                           <p className="text-muted-foreground">{comment.content}</p>
                         </div>
+                        
+                        {/* Admin can delete user comments */}
+                        {isAdmin && !comment.is_admin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => setDeleteCommentId(comment.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -576,6 +590,34 @@ export default function FeedbackDetail() {
               onClick={handleDeleteFeedback}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteFeedback.isPending}
+            >
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Comment Confirmation Dialog */}
+      <AlertDialog open={!!deleteCommentId} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteComment')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('confirmDeleteComment')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (deleteCommentId && id) {
+                  await deleteComment.mutateAsync({ commentId: deleteCommentId, feedbackId: id });
+                  setDeleteCommentId(null);
+                  toast({ title: t('commentDeleted') });
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteComment.isPending}
             >
               {t('delete')}
             </AlertDialogAction>
