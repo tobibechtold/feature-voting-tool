@@ -51,13 +51,13 @@ export default function AppFeedback() {
       items = items.filter((f) => filterStatus.includes(f.status));
     }
     
-    // Sort: non-completed first (by votes), then completed (by votes)
+    // Sort: non-completed/wont_do first (by votes), then completed/wont_do (by votes)
     items.sort((a, b) => {
-      const aCompleted = a.status === 'completed';
-      const bCompleted = b.status === 'completed';
+      const aFinished = a.status === 'completed' || a.status === 'wont_do';
+      const bFinished = b.status === 'completed' || b.status === 'wont_do';
       
-      if (aCompleted !== bCompleted) {
-        return aCompleted ? 1 : -1; // Completed at bottom
+      if (aFinished !== bFinished) {
+        return aFinished ? 1 : -1; // Completed/wont_do at bottom
       }
       return b.vote_count - a.vote_count; // Within group, sort by votes
     });
@@ -286,6 +286,12 @@ export default function AppFeedback() {
                   onCheckedChange={() => toggleStatusFilter('completed')}
                 >
                   {t('statusCompleted')}
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={filterStatus.includes('wont_do')}
+                  onCheckedChange={() => toggleStatusFilter('wont_do')}
+                >
+                  {t('statusWontDo')}
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
