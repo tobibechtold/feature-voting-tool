@@ -252,6 +252,7 @@ export default function FeedbackDetail() {
                       count={item.vote_count}
                       voted={votedItems?.has(item.id) || false}
                       onVote={handleVote}
+                      disabled={item.status === 'completed'}
                     />
                   </div>
                     

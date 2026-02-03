@@ -75,6 +75,7 @@ export function FeedbackCard({
                 count={item.vote_count}
                 voted={voted}
                 onVote={() => onVote(item.id)}
+                disabled={item.status === 'completed'}
               />
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <MessageSquare className="h-4 w-4" />
