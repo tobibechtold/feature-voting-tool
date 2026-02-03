@@ -230,11 +230,13 @@ export default function FeedbackDetail() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex gap-6">
-                  <VoteButton
-                    count={item.vote_count}
-                    voted={votedItems?.has(item.id) || false}
-                    onVote={handleVote}
-                  />
+                  <div className="self-start">
+                    <VoteButton
+                      count={item.vote_count}
+                      voted={votedItems?.has(item.id) || false}
+                      onVote={handleVote}
+                    />
+                  </div>
                   
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
