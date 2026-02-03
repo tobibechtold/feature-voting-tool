@@ -193,7 +193,7 @@ export function useDeleteComment() {
   
   return useMutation({
     mutationFn: async ({ commentId, feedbackId }: { commentId: string; feedbackId: string }) => {
-      const { error } = await supabase
+      const { error } = await publicSupabase
         .from('comments')
         .delete()
         .eq('id', commentId);
