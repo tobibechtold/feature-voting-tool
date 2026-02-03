@@ -15,8 +15,6 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        vote: "bg-vote-btn text-foreground hover:bg-vote-hover hover:text-primary-foreground active:bg-vote-active active:scale-[0.98] border border-border hover:border-transparent",
-        voteActive: "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] shadow-[0_0_20px_hsl(var(--primary)/0.3)]",
         feature: "bg-feature text-feature-foreground hover:bg-feature/90 active:scale-[0.98]",
         bug: "bg-bug text-bug-foreground hover:bg-bug/90 active:scale-[0.98]",
       },
@@ -25,7 +23,6 @@ const buttonVariants = cva(
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-lg px-8",
         icon: "h-10 w-10",
-        vote: "h-auto flex-col py-3 px-4 min-w-[70px]",
       },
     },
     defaultVariants: {

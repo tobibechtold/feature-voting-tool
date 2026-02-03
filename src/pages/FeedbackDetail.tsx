@@ -229,17 +229,10 @@ export default function FeedbackDetail() {
           <div className="animate-fade-in">
             <Card>
               <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                  <div className="self-start">
-                    <VoteButton
-                      count={item.vote_count}
-                      voted={votedItems?.has(item.id) || false}
-                      onVote={handleVote}
-                    />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  {/* Header row with badges and heart */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
                         {item.type === 'feature' ? t('feature') : t('bug')}
                       </Badge>
@@ -255,6 +248,12 @@ export default function FeedbackDetail() {
                         </Badge>
                       )}
                     </div>
+                    <VoteButton
+                      count={item.vote_count}
+                      voted={votedItems?.has(item.id) || false}
+                      onVote={handleVote}
+                    />
+                  </div>
                     
                     <h1 className="text-2xl font-bold mb-4">{item.title}</h1>
                     
@@ -340,13 +339,12 @@ export default function FeedbackDetail() {
                       </div>
                     )}
                     
-                    <p className="text-sm text-muted-foreground mt-4">
-                      {formatDistanceToNow(new Date(item.created_at), {
-                        addSuffix: true,
-                        locale: dateLocale,
-                      })}
-                    </p>
-                  </div>
+                  <p className="text-sm text-muted-foreground mt-4">
+                    {formatDistanceToNow(new Date(item.created_at), {
+                      addSuffix: true,
+                      locale: dateLocale,
+                    })}
+                  </p>
                 </div>
               </CardContent>
             </Card>
