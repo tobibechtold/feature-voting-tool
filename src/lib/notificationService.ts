@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 interface NotificationPayload {
-  type: 'new_feedback' | 'status_change' | 'admin_comment';
+  type: 'new_feedback' | 'status_change' | 'admin_comment' | 'admin_reply_to_comment';
   feedback: {
     id: string;
     type: 'feature' | 'bug';
@@ -13,6 +13,7 @@ interface NotificationPayload {
   appName: string;
   appSlug: string;
   comment?: string;
+  commenterEmail?: string;
 }
 
 export async function sendNotification(payload: NotificationPayload): Promise<void> {

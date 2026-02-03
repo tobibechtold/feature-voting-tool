@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { ArrowLeft, Send, User, ShieldCheck, Trash2, Tag } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { VoteButton } from '@/components/VoteButton';
@@ -8,9 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,7 +30,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useApp } from '@/contexts/AppContext';
 import { useApp as useAppData } from '@/hooks/useApps';
 import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback, useUpdateFeedbackVersion } from '@/hooks/useFeedback';
-import { useComments, useCreateComment } from '@/hooks/useComments';
+import { useComments, useCreateComment, useCreateUserComment } from '@/hooks/useComments';
 import { useToast } from '@/hooks/use-toast';
 import { FeedbackStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -39,6 +42,7 @@ export default function FeedbackDetail() {
   const { t, language } = useTranslation();
   const { isAdmin } = useApp();
   const { toast } = useToast();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   
   const { data: app, isLoading: appLoading, error: appError, fetchStatus: appFetchStatus, refetch: refetchApp } = useAppData(slug);
   const { data: item, isLoading: itemLoading, error: itemError, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id);
@@ -48,12 +52,18 @@ export default function FeedbackDetail() {
   const updateStatus = useUpdateFeedbackStatus();
   const updateVersion = useUpdateFeedbackVersion();
   const createComment = useCreateComment();
+  const createUserComment = useCreateUserComment();
   const deleteFeedback = useDeleteFeedback();
   
   const [newComment, setNewComment] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [versionInput, setVersionInput] = useState('');
   const [isEditingVersion, setIsEditingVersion] = useState(false);
+  
+  // User comment form state
+  const [userEmail, setUserEmail] = useState('');
+  const [notifyOnReply, setNotifyOnReply] = useState(true);
+  const [isSubmittingUserComment, setIsSubmittingUserComment] = useState(false);
 
   const dateLocale = language === 'de' ? de : enUS;
 
@@ -83,6 +93,65 @@ export default function FeedbackDetail() {
       appSlug: app.slug,
     });
     setNewComment('');
+  };
+
+  const handleAddUserComment = async () => {
+    if (!item || !newComment.trim() || !userEmail.trim()) return;
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userEmail.trim())) {
+      toast({
+        title: 'Invalid email',
+        description: 'Please enter a valid email address',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!executeRecaptcha) {
+      toast({
+        title: 'Error',
+        description: 'reCAPTCHA not ready. Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setIsSubmittingUserComment(true);
+    
+    try {
+      // Get reCAPTCHA token
+      const token = await executeRecaptcha('submit_comment');
+      
+      await createUserComment.mutateAsync({
+        feedback_id: item.id,
+        content: newComment.trim(),
+        commenter_email: userEmail.trim(),
+        notify_on_reply: notifyOnReply,
+        recaptcha_token: token,
+      });
+      
+      toast({ title: t('commentSubmitted') });
+      setNewComment('');
+      // Keep email for convenience if they want to comment again
+    } catch (error) {
+      const message = (error as Error).message;
+      if (message === 'CAPTCHA_FAILED') {
+        toast({
+          title: t('captchaFailed'),
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: message,
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsSubmittingUserComment(false);
+    }
   };
 
   const handleDeleteFeedback = async () => {
@@ -415,8 +484,8 @@ export default function FeedbackDetail() {
               )}
             </div>
 
-            {/* Add comment - only for admin */}
-            {isAdmin && (
+            {/* Add comment - admin gets simple form */}
+            {isAdmin ? (
               <>
                 <Separator className="my-6" />
                 
@@ -434,6 +503,56 @@ export default function FeedbackDetail() {
                   >
                     <Send className="h-4 w-4 mr-2" />
                     {t('submit')}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Separator className="my-6" />
+                
+                <div className="space-y-4">
+                  <h3 className="font-medium">{t('addComment')}</h3>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="user-email">{t('yourEmail')}</Label>
+                    <Input
+                      id="user-email"
+                      type="email"
+                      placeholder={t('emailPlaceholder')}
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder={t('commentPlaceholder')}
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="notify-on-reply"
+                      checked={notifyOnReply}
+                      onCheckedChange={(checked) => setNotifyOnReply(checked === true)}
+                    />
+                    <Label 
+                      htmlFor="notify-on-reply" 
+                      className="text-sm text-muted-foreground cursor-pointer"
+                    >
+                      {t('notifyOnReply')}
+                    </Label>
+                  </div>
+                  
+                  <Button
+                    onClick={handleAddUserComment}
+                    disabled={!newComment.trim() || !userEmail.trim() || isSubmittingUserComment}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {t('postComment')}
                   </Button>
                 </div>
               </>
