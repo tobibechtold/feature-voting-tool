@@ -45,26 +45,19 @@ export function FeedbackCard({
       )}>
         <CardContent className="p-4">
           <div className="flex flex-col gap-2">
-            {/* Header row: badges + heart */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
-                  {item.type === 'feature' ? t('feature') : t('bug')}
+            {/* Header row: badges */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
+                {item.type === 'feature' ? t('feature') : t('bug')}
+              </Badge>
+              <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed'}>
+                {getStatusLabel()}
+              </Badge>
+              {item.version && (
+                <Badge variant="secondary" className="font-mono text-xs">
+                  v{item.version.replace(/^v/, '')}
                 </Badge>
-                <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed'}>
-                  {getStatusLabel()}
-                </Badge>
-                {item.version && (
-                  <Badge variant="secondary" className="font-mono text-xs">
-                    v{item.version.replace(/^v/, '')}
-                  </Badge>
-                )}
-              </div>
-              <VoteButton
-                count={item.vote_count}
-                voted={voted}
-                onVote={() => onVote(item.id)}
-              />
+              )}
             </div>
             
             {/* Content */}
@@ -76,10 +69,17 @@ export function FeedbackCard({
               {item.description}
             </p>
             
-            {/* Footer: comments */}
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-              <MessageSquare className="h-4 w-4" />
-              <span>{commentCount}</span>
+            {/* Footer: heart + comments */}
+            <div className="flex items-center justify-between mt-1">
+              <VoteButton
+                count={item.vote_count}
+                voted={voted}
+                onVote={() => onVote(item.id)}
+              />
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <MessageSquare className="h-4 w-4" />
+                <span>{commentCount}</span>
+              </div>
             </div>
           </div>
         </CardContent>
