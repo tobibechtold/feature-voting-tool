@@ -229,7 +229,7 @@ export default function FeedbackDetail() {
           <div className="animate-fade-in">
             <Card>
               <CardContent className="p-6">
-                <div className="flex gap-6">
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                   <div className="self-start">
                     <VoteButton
                       count={item.vote_count}
@@ -238,7 +238,7 @@ export default function FeedbackDetail() {
                     />
                   </div>
                   
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
                       <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
                         {item.type === 'feature' ? t('feature') : t('bug')}
