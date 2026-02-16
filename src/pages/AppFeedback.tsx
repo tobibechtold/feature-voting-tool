@@ -76,6 +76,7 @@ export default function AppFeedback() {
     type: FeedbackType;
     email?: string;
     notifyOnUpdates?: boolean;
+    screenshots?: File[];
   }) => {
     if (!app) return;
     await createFeedback.mutateAsync({
@@ -87,6 +88,7 @@ export default function AppFeedback() {
       notify_on_updates: data.notifyOnUpdates,
       appName: app.name,
       appSlug: app.slug,
+      screenshots: data.screenshots,
     });
   };
 
