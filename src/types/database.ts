@@ -165,6 +165,26 @@ export type Database = {
           created_at?: string
         }
       }
+      feedback_attachments: {
+        Row: {
+          id: string
+          feedback_id: string
+          image_url: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          feedback_id: string
+          image_url: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          feedback_id?: string
+          image_url?: string
+          created_at?: string
+        }
+      }
     }
     Functions: {
       has_role: {
