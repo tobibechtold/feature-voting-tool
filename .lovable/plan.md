@@ -1,146 +1,111 @@
 
+# Multiple Screenshot Attachments for Feedback
 
-# User Comments with Invisible reCAPTCHA and Email
+Allow users to attach up to 5 screenshots when submitting a feature request or bug report. Images are stored in Supabase Storage and displayed on the feedback detail page.
 
-## Overview
+## What Changes
 
-Enable regular users to submit comments on feedback items by requiring:
-1. **Email address** - For accountability and enabling reply notifications
-2. **Invisible reCAPTCHA v3** - Runs silently in background for spam protection
-3. **Notification on admin reply** - Email users when admin responds to their comment
+1. **New database table** -- A `feedback_attachments` table (instead of a single column) to store multiple image URLs per feedback item
+2. **New storage bucket** -- A `feedback-attachments` public bucket for uploaded images
+3. **Upload hook** -- New `useUploadScreenshot` in `useStorage.ts`
+4. **Feedback form** -- File picker supporting multiple images with previews (max 5, max 5MB each)
+5. **Feedback submission flow** -- Upload files after creating the feedback row, then insert attachment records
+6. **Feedback detail page** -- Display all attached screenshots in a grid below the description
+7. **Translations** -- New strings for EN and DE
 
-Currently, only admins can comment. This change opens commenting to all users with appropriate safeguards.
+## Technical Details
 
----
-
-## User Experience Flow
-
-```text
-User views feedback detail page
-         |
-         v
-+-------------------+
-| Comment form      |
-| - Email input     |
-| - Comment text    |
-| - Checkbox:       |
-|   "Notify me of   |
-|    replies"       |
-+-------------------+
-         |
-         v
-User clicks Submit
-         |
-         v
-Invisible reCAPTCHA v3 runs in background
-         |
-         v
-Token + comment sent to edge function
-         |
-         v
-Edge function verifies reCAPTCHA token
-         |
-    [Score > 0.5?]
-    /           \
-  Yes            No
-   |              |
-   v              v
-Save comment   Reject as spam
-   |
-   v
-Admin replies later -> User gets email notification
-```
-
----
-
-## What You Need to Do
-
-### Get a reCAPTCHA Site Key
-
-1. Go to [Google reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
-2. Click "+" to create a new site
-3. Choose **reCAPTCHA v3** (invisible)
-4. Add your domains:
-   - `localhost` (for development)
-   - `app-applaud.lovable.app`
-   - `id-preview--214a6b75-2094-4a38-a61e-1313472729f6.lovable.app`
-5. Copy the **Site Key** (public) and **Secret Key** (private)
-
-I will ask you to provide the **Secret Key** as a secure secret (it will be stored encrypted and used only in the edge function).
-
----
-
-## Technical Implementation
-
-### 1. Database Schema Changes
-
-Add new columns to the `comments` table to store commenter info:
+### 1. SQL Migration
 
 ```sql
-ALTER TABLE comments 
-ADD COLUMN commenter_email TEXT,
-ADD COLUMN notify_on_reply BOOLEAN DEFAULT false;
+-- New table for multiple attachments
+CREATE TABLE public.feedback_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  feedback_id UUID NOT NULL REFERENCES public.feedback(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS policies
+ALTER TABLE public.feedback_attachments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public read feedback attachments"
+ON public.feedback_attachments FOR SELECT TO public USING (true);
+
+CREATE POLICY "Public insert feedback attachments"
+ON public.feedback_attachments FOR INSERT TO public WITH CHECK (true);
+
+CREATE POLICY "Admin delete feedback attachments"
+ON public.feedback_attachments FOR DELETE TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
+
+-- Storage bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('feedback-attachments', 'feedback-attachments', true);
+
+CREATE POLICY "Public read feedback attachment files"
+ON storage.objects FOR SELECT TO public
+USING (bucket_id = 'feedback-attachments');
+
+CREATE POLICY "Public upload feedback attachment files"
+ON storage.objects FOR INSERT TO public
+WITH CHECK (bucket_id = 'feedback-attachments');
+
+CREATE POLICY "Admin delete feedback attachment files"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'feedback-attachments');
 ```
 
 ### 2. Type Updates
 
-Update the Comment interface and database types to include the new fields.
+- **`src/types/database.ts`** -- Add `feedback_attachments` table definition
+- **`src/types/index.ts`** -- Add `FeedbackAttachment` interface
 
-### 3. Frontend: User Comment Form
+### 3. Upload Hook (`src/hooks/useStorage.ts`)
 
-Modify `FeedbackDetail.tsx` to show a comment form for non-admin users:
-- Email input field (required)
-- Comment textarea (required)
-- "Notify me when admin replies" checkbox
-- reCAPTCHA v3 integration (runs invisibly on submit)
+Add `useUploadFeedbackScreenshot` that uploads a file to `feedback-attachments/{feedbackId}-{index}-{timestamp}.{ext}` and returns the public URL.
 
-### 4. reCAPTCHA v3 Integration
+### 4. Attachments Hook (new `src/hooks/useAttachments.ts`)
 
-Install the `react-google-recaptcha-v3` package and wrap the app with the reCAPTCHA provider. On form submission, get a token and send it with the comment.
+- `useAttachments(feedbackId)` -- Fetch all attachments for a feedback item
+- `useCreateAttachments()` -- Insert multiple attachment records after upload
+- `useDeleteAttachment()` -- Admin-only deletion
 
-### 5. Edge Function: Verify reCAPTCHA
+### 5. Create Feedback Dialog (`src/components/CreateFeedbackDialog.tsx`)
 
-Create or update an edge function to:
-1. Receive the comment data + reCAPTCHA token
-2. Verify the token with Google's API using the secret key
-3. Check the score (v3 returns 0.0-1.0; reject if < 0.5)
-4. If valid, insert the comment into the database
-5. Return success/failure
+- Add a file input accepting multiple images (accept: `image/*`)
+- Max 5 files, max 5MB each -- validate on selection
+- Show thumbnail previews in a horizontal row with remove buttons
+- Pass `File[]` array through `onSubmit`
 
-### 6. Notification for User Comments
+### 6. Feedback Submission (`src/hooks/useFeedback.ts`)
 
-Update the `send-notification` edge function to handle a new notification type: `user_comment_reply`. When an admin replies to a user comment where `notify_on_reply` is true, send an email notification.
+- Extend `CreateFeedbackInput` to accept optional `screenshots: File[]`
+- After inserting the feedback row, upload all files in parallel, then batch-insert attachment records
 
-### 7. Translation Keys
+### 7. Feedback Detail Page (`src/pages/FeedbackDetail.tsx`)
 
-Add new i18n keys for:
-- `yourEmail`: "Your email"
-- `notifyOnReply`: "Notify me when an admin replies"
-- `captchaFailed`: "Verification failed. Please try again."
-- `commentSubmitted`: "Comment submitted successfully"
+- Fetch attachments using `useAttachments(id)`
+- Display screenshots in a responsive grid below the description
+- Each image is clickable to open full-size in a new tab
+- Admin users see a delete button on each image
 
----
+### 8. Translations (`src/lib/i18n.ts`)
 
-## Files to Create/Modify
+| Key | EN | DE |
+|-----|----|----|
+| `attachScreenshots` | Attach screenshots | Screenshots anhangen |
+| `removeScreenshot` | Remove | Entfernen |
+| `maxFiles` | Max 5 images, 5MB each | Max 5 Bilder, je 5MB |
+| `screenshotDeleted` | Screenshot deleted | Screenshot geloscht |
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/types/index.ts` | Modify | Add commenter_email, notify_on_reply to Comment |
-| `src/types/database.ts` | Modify | Update comments table type |
-| `src/hooks/useComments.ts` | Modify | Accept user comment data, call edge function |
-| `src/pages/FeedbackDetail.tsx` | Modify | Add comment form for non-admin users |
-| `src/lib/i18n.ts` | Modify | Add new translation keys |
-| `src/main.tsx` or `src/App.tsx` | Modify | Wrap with GoogleReCaptchaProvider |
-| `supabase/functions/verify-comment/index.ts` | Create | Verify reCAPTCHA and insert comment |
-| `supabase/functions/send-notification/index.ts` | Modify | Handle reply notifications to commenters |
-| Database | Migration | Add columns to comments table |
+### Files to Create/Modify
 
----
-
-## Security Considerations
-
-- reCAPTCHA secret key stored securely in Supabase secrets
-- Score threshold (0.5) prevents most bot submissions
-- Email validation on both client and server side
-- Content length limits to prevent abuse
-
+- **New**: `src/hooks/useAttachments.ts`
+- **New**: SQL migration for `feedback_attachments` table + storage bucket
+- **Modify**: `src/types/database.ts`, `src/types/index.ts`
+- **Modify**: `src/hooks/useStorage.ts`
+- **Modify**: `src/hooks/useFeedback.ts`
+- **Modify**: `src/components/CreateFeedbackDialog.tsx`
+- **Modify**: `src/pages/FeedbackDetail.tsx`
+- **Modify**: `src/lib/i18n.ts`
