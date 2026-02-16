@@ -29,7 +29,6 @@ export function useUploadLogo() {
 export function useDeleteLogo() {
   return useMutation({
     mutationFn: async (logoUrl: string) => {
-      // Extract file path from URL
       const url = new URL(logoUrl);
       const pathParts = url.pathname.split('/');
       const filePath = pathParts.slice(pathParts.indexOf('app-logos') + 1).join('/');
@@ -39,6 +38,31 @@ export function useDeleteLogo() {
         .remove([filePath]);
 
       if (error) throw error;
+    },
+  });
+}
+
+export function useUploadFeedbackScreenshot() {
+  return useMutation({
+    mutationFn: async ({ file, feedbackId, index }: { file: File; feedbackId: string; index: number }) => {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${feedbackId}-${index}-${Date.now()}.${fileExt}`;
+      const filePath = `screenshots/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('feedback-attachments')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('feedback-attachments')
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
     },
   });
 }

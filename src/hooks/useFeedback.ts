@@ -80,6 +80,7 @@ interface CreateFeedbackInput {
   notify_on_updates?: boolean;
   appName?: string;
   appSlug?: string;
+  screenshots?: File[];
 }
 
 export function useCreateFeedback() {
@@ -87,12 +88,12 @@ export function useCreateFeedback() {
   
   return useMutation({
     mutationFn: async (input: CreateFeedbackInput) => {
-      const { appName, appSlug, ...feedback } = input;
+      const { appName, appSlug, screenshots, ...rest } = input;
       const insertData = { 
-        ...feedback, 
+        ...rest, 
         vote_count: 1,
-        submitter_email: feedback.submitter_email || null,
-        notify_on_updates: feedback.notify_on_updates || false,
+        submitter_email: rest.submitter_email || null,
+        notify_on_updates: rest.notify_on_updates || false,
       };
       
       const { data, error } = await supabase
@@ -110,6 +111,38 @@ export function useCreateFeedback() {
       await supabase
         .from('votes')
         .insert({ feedback_id: feedbackData.id, voter_id: voterId } as never);
+
+      // Upload screenshots if any
+      if (screenshots && screenshots.length > 0) {
+        const uploadPromises = screenshots.map(async (file, index) => {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${feedbackData.id}-${index}-${Date.now()}.${fileExt}`;
+          const filePath = `screenshots/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('feedback-attachments')
+            .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+          if (uploadError) {
+            console.error('Screenshot upload failed:', uploadError);
+            return null;
+          }
+
+          const { data: urlData } = supabase.storage
+            .from('feedback-attachments')
+            .getPublicUrl(filePath);
+
+          return urlData.publicUrl;
+        });
+
+        const urls = (await Promise.all(uploadPromises)).filter(Boolean) as string[];
+
+        if (urls.length > 0) {
+          await supabase
+            .from('feedback_attachments')
+            .insert(urls.map(url => ({ feedback_id: feedbackData.id, image_url: url })) as never[]);
+        }
+      }
 
       // Send notification to admin about new feedback
       if (appName && appSlug) {

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Lightbulb, Bug } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Lightbulb, Bug, ImagePlus, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,9 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { FeedbackType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
+const MAX_FILES = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 interface CreateFeedbackDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,6 +29,7 @@ interface CreateFeedbackDialogProps {
     type: FeedbackType;
     email?: string;
     notifyOnUpdates?: boolean;
+    screenshots?: File[];
   }) => void;
 }
 
@@ -42,10 +46,45 @@ export function CreateFeedbackDialog({
   const [email, setEmail] = useState('');
   const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [screenshots, setScreenshots] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isValidEmail = (email: string) => {
-    if (!email) return false; // Email is now required
+    if (!email) return false;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = MAX_FILES - screenshots.length;
+    const toAdd = files.slice(0, remaining);
+    
+    const validFiles: File[] = [];
+    for (const file of toAdd) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          title: `${file.name} exceeds 5MB`,
+          variant: 'destructive',
+        });
+        continue;
+      }
+      if (!file.type.startsWith('image/')) continue;
+      validFiles.push(file);
+    }
+
+    const newPreviews = validFiles.map(f => URL.createObjectURL(f));
+    setScreenshots(prev => [...prev, ...validFiles]);
+    setPreviews(prev => [...prev, ...newPreviews]);
+    
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeScreenshot = (index: number) => {
+    URL.revokeObjectURL(previews[index]);
+    setScreenshots(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,14 +108,17 @@ export function CreateFeedbackDialog({
         type,
         email: email.trim() || undefined,
         notifyOnUpdates: email.trim() ? notifyOnUpdates : false,
+        screenshots: screenshots.length > 0 ? screenshots : undefined,
       });
-      toast({
-        title: t('submitSuccess'),
-      });
+      toast({ title: t('submitSuccess') });
+      // Cleanup previews
+      previews.forEach(p => URL.revokeObjectURL(p));
       setTitle('');
       setDescription('');
       setEmail('');
       setNotifyOnUpdates(true);
+      setScreenshots([]);
+      setPreviews([]);
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -136,6 +178,53 @@ export function CreateFeedbackDialog({
               rows={4}
               required
             />
+          </div>
+
+          {/* Screenshot attachment */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>{t('attachScreenshots')}</Label>
+              <span className="text-xs text-muted-foreground">{t('maxFiles')}</span>
+            </div>
+
+            {previews.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {previews.map((src, i) => (
+                  <div key={i} className="relative group w-16 h-16 rounded-md overflow-hidden border border-border">
+                    <img src={src} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeScreenshot(i)}
+                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    >
+                      <X className="h-4 w-4 text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {screenshots.length < MAX_FILES && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFilesSelected}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImagePlus className="h-4 w-4 mr-2" />
+                  {t('attachScreenshots')}
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="space-y-2">

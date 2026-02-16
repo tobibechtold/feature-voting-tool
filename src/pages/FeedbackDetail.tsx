@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
-import { ArrowLeft, Send, User, ShieldCheck, Trash2, Tag } from 'lucide-react';
+import { ArrowLeft, Send, User, ShieldCheck, Trash2, Tag, X } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { VoteButton } from '@/components/VoteButton';
 import { StatusSelect } from '@/components/StatusSelect';
@@ -31,6 +31,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useApp as useAppData } from '@/hooks/useApps';
 import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback, useUpdateFeedbackVersion } from '@/hooks/useFeedback';
 import { useComments, useCreateComment, useCreateUserComment, useDeleteComment } from '@/hooks/useComments';
+import { useAttachments, useDeleteAttachment } from '@/hooks/useAttachments';
 import { useToast } from '@/hooks/use-toast';
 import { FeedbackStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -47,6 +48,7 @@ export default function FeedbackDetail() {
   const { data: app, isLoading: appLoading, error: appError, fetchStatus: appFetchStatus, refetch: refetchApp } = useAppData(slug);
   const { data: item, isLoading: itemLoading, error: itemError, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id);
   const { data: comments, isLoading: commentsLoading, error: commentsError, fetchStatus: commentsFetchStatus, refetch: refetchComments } = useComments(id);
+  const { data: attachments } = useAttachments(id);
   const { data: votedItems } = useVotedItems();
   const vote = useVote();
   const updateStatus = useUpdateFeedbackStatus();
@@ -55,6 +57,7 @@ export default function FeedbackDetail() {
   const createUserComment = useCreateUserComment();
   const deleteFeedback = useDeleteFeedback();
   const deleteComment = useDeleteComment();
+  const deleteAttachment = useDeleteAttachment();
   
   const [newComment, setNewComment] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -326,6 +329,40 @@ export default function FeedbackDetail() {
                   <p className="text-muted-foreground whitespace-pre-wrap">
                     {item.description}
                   </p>
+
+                  {/* Attached screenshots */}
+                  {attachments && attachments.length > 0 && (
+                    <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {attachments.map((att) => (
+                        <div key={att.id} className="relative group">
+                          <a href={att.image_url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={att.image_url}
+                              alt="Screenshot"
+                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity"
+                              loading="lazy"
+                            />
+                          </a>
+                          {isAdmin && (
+                            <button
+                              onClick={() => {
+                                deleteAttachment.mutate(
+                                  { attachmentId: att.id, imageUrl: att.image_url },
+                                  {
+                                    onSuccess: () => toast({ title: t('screenshotDeleted') }),
+                                    onError: (err) => toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' }),
+                                  }
+                                );
+                              }}
+                              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                     
                   {/* Admin-only: show submitter email if available */}
                   {isAdmin && item.submitter_email && (
