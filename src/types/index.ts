@@ -49,3 +49,10 @@ export interface VersionRelease {
   released_at: string | null;
   created_at: string;
 }
+
+export interface FeedbackAttachment {
+  id: string;
+  feedback_id: string;
+  image_url: string;
+  created_at: string;
+}

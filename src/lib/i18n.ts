@@ -130,6 +130,12 @@ export const translations = {
     deleteComment: 'Delete Comment',
     confirmDeleteComment: 'Are you sure you want to delete this comment? This action cannot be undone.',
     commentDeleted: 'Comment deleted successfully',
+    
+    // Attachments
+    attachScreenshots: 'Attach screenshots',
+    removeScreenshot: 'Remove',
+    maxFiles: 'Max 5 images, 5MB each',
+    screenshotDeleted: 'Screenshot deleted',
   },
   de: {
     // Common
@@ -260,6 +266,12 @@ export const translations = {
     deleteComment: 'Kommentar löschen',
     confirmDeleteComment: 'Möchtest du diesen Kommentar wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
     commentDeleted: 'Kommentar erfolgreich gelöscht',
+    
+    // Attachments
+    attachScreenshots: 'Screenshots anhängen',
+    removeScreenshot: 'Entfernen',
+    maxFiles: 'Max 5 Bilder, je 5MB',
+    screenshotDeleted: 'Screenshot gelöscht',
   },
 } as const;
 
