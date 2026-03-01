@@ -14,6 +14,7 @@ import Changelog from "./pages/Changelog";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import { Analytics } from "@vercel/analytics/react";
 
 // reCAPTCHA v3 site key (public)
 const RECAPTCHA_SITE_KEY = "6LdXeV8sAAAAADYg817vM98uVUKU_UcCoZX1WFNB";
@@ -36,6 +37,7 @@ const App = () => (
                 <Route path="/admin" element={<Admin />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <Analytics />
             </BrowserRouter>
           </TooltipProvider>
         </ErrorBoundary>
