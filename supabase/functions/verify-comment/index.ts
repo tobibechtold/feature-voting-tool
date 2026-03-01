@@ -2,8 +2,17 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RECAPTCHA_SECRET_KEY = Deno.env.get("RECAPTCHA_SECRET_KEY");
+const RECAPTCHA_MIN_SCORE = Number(Deno.env.get("RECAPTCHA_MIN_SCORE") ?? "0.5");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+if (!RECAPTCHA_SECRET_KEY) {
+  throw new Error("Missing RECAPTCHA_SECRET_KEY environment variable");
+}
+
+if (Number.isNaN(RECAPTCHA_MIN_SCORE) || RECAPTCHA_MIN_SCORE < 0 || RECAPTCHA_MIN_SCORE > 1) {
+  throw new Error("RECAPTCHA_MIN_SCORE must be a number between 0 and 1");
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,8 +79,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Verify reCAPTCHA
     const recaptchaResult = await verifyRecaptcha(recaptcha_token);
-    
-    if (!recaptchaResult.success || recaptchaResult.score < 0.5) {
+
+    if (!recaptchaResult.success || recaptchaResult.score < RECAPTCHA_MIN_SCORE) {
       console.log("reCAPTCHA failed:", recaptchaResult);
       return new Response(
         JSON.stringify({ error: "Verification failed", code: "CAPTCHA_FAILED" }),

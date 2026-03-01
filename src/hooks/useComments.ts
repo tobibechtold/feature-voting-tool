@@ -163,23 +163,24 @@ export function useCreateUserComment() {
   
   return useMutation({
     mutationFn: async (input: CreateUserCommentInput) => {
-      const response = await fetch(
-        'https://REDACTED.supabase.co/functions/v1/verify-comment',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(input),
-        }
-      );
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.code === 'CAPTCHA_FAILED' ? 'CAPTCHA_FAILED' : data.error || 'Failed to submit comment');
+      const { data, error } = await supabase.functions.invoke("verify-comment", {
+        body: input,
+      });
+
+      if (error) {
+        throw new Error("Failed to submit comment");
       }
-      
+
+      const payload = data as { code?: string; error?: string } | null;
+
+      if (payload?.code === "CAPTCHA_FAILED") {
+        throw new Error("CAPTCHA_FAILED");
+      }
+
+      if (payload?.error) {
+        throw new Error(payload.error);
+      }
+
       return data as Comment;
     },
     onSuccess: (data) => {

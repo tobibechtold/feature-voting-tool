@@ -16,8 +16,11 @@ import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { Analytics } from "@vercel/analytics/react";
 
-// reCAPTCHA v3 site key (public)
-const RECAPTCHA_SITE_KEY = "6LdXeV8sAAAAADYg817vM98uVUKU_UcCoZX1WFNB";
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
+if (!RECAPTCHA_SITE_KEY) {
+  throw new Error("Missing VITE_RECAPTCHA_SITE_KEY environment variable");
+}
 
 const App = () => (
   <GoogleReCaptchaProvider reCaptchaKey={RECAPTCHA_SITE_KEY}>

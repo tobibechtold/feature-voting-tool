@@ -1,6 +1,28 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const NOTIFICATION_FROM_EMAIL = Deno.env.get("NOTIFICATION_FROM_EMAIL");
+const NOTIFICATION_FROM_NAME = Deno.env.get("NOTIFICATION_FROM_NAME") ?? "Feature Vote";
+const ADMIN_NOTIFICATION_EMAIL = Deno.env.get("ADMIN_NOTIFICATION_EMAIL");
+const APP_BASE_URL = Deno.env.get("APP_BASE_URL");
+
+if (!RESEND_API_KEY) {
+  throw new Error("Missing RESEND_API_KEY environment variable");
+}
+
+if (!NOTIFICATION_FROM_EMAIL) {
+  throw new Error("Missing NOTIFICATION_FROM_EMAIL environment variable");
+}
+
+if (!ADMIN_NOTIFICATION_EMAIL) {
+  throw new Error("Missing ADMIN_NOTIFICATION_EMAIL environment variable");
+}
+
+if (!APP_BASE_URL) {
+  throw new Error("Missing APP_BASE_URL environment variable");
+}
+
+const NOTIFICATION_FROM = `${NOTIFICATION_FROM_NAME} <${NOTIFICATION_FROM_EMAIL}>`;
 
 async function sendEmail(payload: {
   from: string;
@@ -24,8 +46,6 @@ async function sendEmail(payload: {
 
   return response.json();
 }
-
-
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,7 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { type, feedback, appName, appSlug, comment, commenterEmail }: NotificationRequest = await req.json();
-    const feedbackUrl = `https://featurevoting.tobibechtold.dev/app/${appSlug}/${feedback.id}`;
+    const feedbackUrl = `${APP_BASE_URL.replace(/\/$/, "")}/app/${appSlug}/${feedback.id}`;
     const feedbackTypeLabel = feedback.type === "feature" ? "Feature Request" : "Bug Report";
 
     let emailResponse;
@@ -64,8 +84,8 @@ const handler = async (req: Request): Promise<Response> => {
     if (type === "new_feedback") {
       // Always notify admin about new feedback
       emailResponse = await sendEmail({
-        from: "Feature Vote <noreply@featurevoting.tobibechtold.dev>",
-        to: ["support@tobibechtold.dev"],
+        from: NOTIFICATION_FROM,
+        to: [ADMIN_NOTIFICATION_EMAIL],
         subject: `New ${feedbackTypeLabel}: ${feedback.title}`,
         html: `
           <h2>New ${feedbackTypeLabel} for ${appName}</h2>
@@ -85,7 +105,7 @@ const handler = async (req: Request): Promise<Response> => {
       const statusLabel = statusLabels[feedback.status || "open"] || feedback.status;
 
       emailResponse = await sendEmail({
-        from: "Feature Vote <noreply@featurevoting.tobibechtold.dev>",
+        from: NOTIFICATION_FROM,
         to: [feedback.submitter_email],
         subject: `Your ${feedbackTypeLabel.toLowerCase()} is now ${statusLabel}`,
         html: `
@@ -98,7 +118,7 @@ const handler = async (req: Request): Promise<Response> => {
     } else if (type === "admin_comment" && feedback.notify_on_updates && feedback.submitter_email) {
       // Notify user about admin comment (only if they opted in)
       emailResponse = await sendEmail({
-        from: "Feature Vote <noreply@featurevoting.tobibechtold.dev>",
+        from: NOTIFICATION_FROM,
         to: [feedback.submitter_email],
         subject: `Admin replied to your ${feedbackTypeLabel.toLowerCase()}`,
         html: `
@@ -111,7 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
     } else if (type === "admin_reply_to_comment" && commenterEmail) {
       // Notify user commenter when admin replies
       emailResponse = await sendEmail({
-        from: "Feature Vote <noreply@featurevoting.tobibechtold.dev>",
+        from: NOTIFICATION_FROM,
         to: [commenterEmail],
         subject: `Admin replied on "${feedback.title}"`,
         html: `
