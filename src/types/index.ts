@@ -8,6 +8,7 @@ export interface App {
   slug: string;
   description: string | null;
   logo_url: string | null;
+  platforms: string[];
   created_at: string;
 }
 
@@ -23,6 +24,7 @@ export interface FeedbackItem {
   submitter_email?: string | null;
   notify_on_updates?: boolean;
   version?: string | null;
+  platform?: string | null;
 }
 
 export interface Vote {
@@ -47,6 +49,33 @@ export interface VersionRelease {
   app_id: string;
   version: string;
   released_at: string | null;
+  created_at: string;
+}
+
+export interface ReleaseGroup {
+  id: string;
+  app_id: string;
+  semver: string;
+  title: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ReleaseGroupPlatform {
+  id: string;
+  release_group_id: string;
+  platform: string;
+  version: string;
+  status: 'planned' | 'released';
+  released_at: string | null;
+  created_at: string;
+}
+
+export interface FeedbackReleaseTarget {
+  id: string;
+  feedback_id: string;
+  release_group_id: string;
+  platform: string;
   created_at: string;
 }
 

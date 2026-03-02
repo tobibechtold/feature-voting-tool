@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { ArrowLeft, Send, User, ShieldCheck, Trash2, Tag, X } from 'lucide-react';
@@ -15,6 +15,13 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -29,13 +36,15 @@ import { QueryErrorState } from '@/components/QueryErrorState';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApp } from '@/contexts/AppContext';
 import { useApp as useAppData } from '@/hooks/useApps';
-import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback, useUpdateFeedbackVersion } from '@/hooks/useFeedback';
+import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback } from '@/hooks/useFeedback';
 import { useComments, useCreateComment, useCreateUserComment, useDeleteComment } from '@/hooks/useComments';
 import { useAttachments, useDeleteAttachment } from '@/hooks/useAttachments';
+import { useAssignFeedbackRelease, useFeedbackReleaseTargets } from '@/hooks/useReleases';
 import { useToast } from '@/hooks/use-toast';
 import { FeedbackStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { de, enUS } from 'date-fns/locale';
+import { normalizePlatformLabel } from '@/lib/platforms';
 
 export default function FeedbackDetail() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
@@ -49,10 +58,11 @@ export default function FeedbackDetail() {
   const { data: item, isLoading: itemLoading, error: itemError, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id);
   const { data: comments, isLoading: commentsLoading, error: commentsError, fetchStatus: commentsFetchStatus, refetch: refetchComments } = useComments(id);
   const { data: attachments } = useAttachments(id);
+  const { data: releaseTargets = [] } = useFeedbackReleaseTargets(id);
   const { data: votedItems } = useVotedItems();
   const vote = useVote();
   const updateStatus = useUpdateFeedbackStatus();
-  const updateVersion = useUpdateFeedbackVersion();
+  const assignFeedbackRelease = useAssignFeedbackRelease();
   const createComment = useCreateComment();
   const createUserComment = useCreateUserComment();
   const deleteFeedback = useDeleteFeedback();
@@ -62,8 +72,8 @@ export default function FeedbackDetail() {
   const [newComment, setNewComment] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
-  const [versionInput, setVersionInput] = useState('');
-  const [isEditingVersion, setIsEditingVersion] = useState(false);
+  const [releaseVersionInput, setReleaseVersionInput] = useState('');
+  const [releasePlatformInput, setReleasePlatformInput] = useState('');
   
   // User comment form state
   const [userEmail, setUserEmail] = useState('');
@@ -71,6 +81,15 @@ export default function FeedbackDetail() {
   const [isSubmittingUserComment, setIsSubmittingUserComment] = useState(false);
 
   const dateLocale = language === 'de' ? de : enUS;
+  const releasePlatformOptions = useMemo(() => {
+    if (!app?.platforms || app.platforms.length === 0) return ['web'];
+    return app.platforms.length > 1 ? ['all', ...app.platforms] : [...app.platforms];
+  }, [app?.platforms]);
+
+  useEffect(() => {
+    if (!releasePlatformOptions.length) return;
+    setReleasePlatformInput((prev) => prev || releasePlatformOptions[0]);
+  }, [releasePlatformOptions]);
 
   const handleVote = () => {
     if (!item || votedItems?.has(item.id)) return;
@@ -311,6 +330,11 @@ export default function FeedbackDetail() {
                     <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
                       {item.type === 'feature' ? t('feature') : t('bug')}
                     </Badge>
+                    {item.type === 'bug' && item.platform && (
+                      <Badge variant="secondary">
+                        {normalizePlatformLabel(item.platform)}
+                      </Badge>
+                    )}
                     
                     {isAdmin ? (
                       <StatusSelect
@@ -377,70 +401,60 @@ export default function FeedbackDetail() {
                     </div>
                   )}
                     
-                  {/* Admin-only: Version assignment */}
-                  {isAdmin && (
-                    <div className="mt-4 flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-muted-foreground" />
-                      {isEditingVersion ? (
-                        <>
-                          <Input
-                            value={versionInput}
-                            onChange={(e) => setVersionInput(e.target.value)}
-                            placeholder={t('versionPlaceholder')}
-                            className="w-32 h-8"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={async () => {
-                              await updateVersion.mutateAsync({ 
-                                id: item.id, 
-                                version: versionInput.trim() || null 
-                              });
-                              setIsEditingVersion(false);
-                            }}
-                            disabled={updateVersion.isPending}
-                          >
-                            {t('save')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setVersionInput(item.version || '');
-                              setIsEditingVersion(false);
-                            }}
-                          >
-                            {t('cancel')}
-                          </Button>
-                        </>
-                      ) : (
+                  {/* Release assignments */}
+                  <div className="mt-4 space-y-2">
+                    {isAdmin && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Tag className="h-4 w-4 text-muted-foreground" />
+                        <Input
+                          value={releaseVersionInput}
+                          onChange={(e) => setReleaseVersionInput(e.target.value)}
+                          placeholder={t('versionPlaceholder')}
+                          className="w-36 h-8"
+                        />
+                        <Select value={releasePlatformInput} onValueChange={setReleasePlatformInput}>
+                          <SelectTrigger className="w-36 h-8">
+                            <SelectValue placeholder={t('platform')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {releasePlatformOptions.map((platform) => (
+                              <SelectItem key={platform} value={platform}>
+                                {normalizePlatformLabel(platform)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Button
-                          variant="ghost"
                           size="sm"
-                          className="text-muted-foreground hover:text-foreground"
-                          onClick={() => {
-                            setVersionInput(item.version || '');
-                            setIsEditingVersion(true);
+                          onClick={async () => {
+                            if (!app || !item || !releaseVersionInput.trim() || !releasePlatformInput) return;
+                            await assignFeedbackRelease.mutateAsync({
+                              appId: app.id,
+                              feedbackId: item.id,
+                              semver: releaseVersionInput.trim(),
+                              platform: releasePlatformInput,
+                            });
+                            toast({ title: t('appUpdated') });
                           }}
+                          disabled={assignFeedbackRelease.isPending || !releaseVersionInput.trim() || !releasePlatformInput}
                         >
-                          {item.version ? (
-                            <>{t('version')}: <span className="font-mono ml-1">{item.version}</span></>
-                          ) : (
-                            t('setVersion')
-                          )}
+                          {t('setVersion')}
                         </Button>
-                      )}
-                    </div>
-                  )}
-                    
-                  {/* Show version badge for non-admins if version is set */}
-                  {!isAdmin && item.version && (
-                    <div className="mt-4 flex items-center gap-2 text-sm">
-                      <Tag className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">{t('includedInVersion')}:</span>
-                      <span className="font-mono">{item.version}</span>
-                    </div>
-                  )}
+                      </div>
+                    )}
+
+                    {releaseTargets.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap text-sm">
+                        <Tag className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">{t('includedInVersion')}:</span>
+                        {releaseTargets.map((target) => (
+                          <Badge key={target.id} variant="secondary" className="font-mono">
+                            {normalizePlatformLabel(target.platform)} v{target.semver.replace(/^v/, '')}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                     
                   {/* Footer: heart + timestamp */}
                   <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">

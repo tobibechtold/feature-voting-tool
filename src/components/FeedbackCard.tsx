@@ -7,6 +7,7 @@ import { FeedbackItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useCommentCount } from '@/hooks/useComments';
+import { normalizePlatformLabel } from '@/lib/platforms';
 
 interface FeedbackCardProps {
   item: FeedbackItem;
@@ -52,6 +53,11 @@ export function FeedbackCard({
               <Badge variant={item.type === 'feature' ? 'feature' : 'bug'}>
                 {item.type === 'feature' ? t('feature') : t('bug')}
               </Badge>
+              {item.type === 'bug' && item.platform && (
+                <Badge variant="secondary">
+                  {normalizePlatformLabel(item.platform)}
+                </Badge>
+              )}
               <Badge variant={item.status as 'open' | 'planned' | 'progress' | 'completed' | 'wont_do'}>
                 {getStatusLabel()}
               </Badge>

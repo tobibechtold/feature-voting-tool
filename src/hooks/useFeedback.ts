@@ -76,6 +76,7 @@ interface CreateFeedbackInput {
   type: FeedbackType;
   title: string;
   description: string;
+  platform?: string;
   submitter_email?: string;
   notify_on_updates?: boolean;
   appName?: string;
@@ -91,6 +92,7 @@ export function useCreateFeedback() {
       const { appName, appSlug, screenshots, ...rest } = input;
       const insertData = { 
         ...rest, 
+        platform: rest.type === 'bug' ? (rest.platform || null) : null,
         vote_count: 1,
         submitter_email: rest.submitter_email || null,
         notify_on_updates: rest.notify_on_updates || false,

@@ -74,6 +74,7 @@ export default function AppFeedback() {
     title: string; 
     description: string; 
     type: FeedbackType;
+    platform?: string;
     email?: string;
     notifyOnUpdates?: boolean;
     screenshots?: File[];
@@ -84,6 +85,7 @@ export default function AppFeedback() {
       type: data.type,
       title: data.title,
       description: data.description,
+      platform: data.type === 'bug' ? data.platform : undefined,
       submitter_email: data.email,
       notify_on_updates: data.notifyOnUpdates,
       appName: app.name,
@@ -347,6 +349,7 @@ export default function AppFeedback() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         type={createType}
+        platforms={app.platforms || ['web']}
         onSubmit={handleCreateFeedback}
       />
     </div>

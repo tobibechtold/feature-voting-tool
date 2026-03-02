@@ -16,6 +16,7 @@ export type Database = {
           slug: string
           description: string | null
           logo_url: string | null
+          platforms: string[]
           created_at: string
         }
         Insert: {
@@ -24,6 +25,7 @@ export type Database = {
           slug: string
           description?: string | null
           logo_url?: string | null
+          platforms?: string[]
           created_at?: string
         }
         Update: {
@@ -32,6 +34,7 @@ export type Database = {
           slug?: string
           description?: string | null
           logo_url?: string | null
+          platforms?: string[]
           created_at?: string
         }
       }
@@ -48,6 +51,7 @@ export type Database = {
           submitter_email: string | null
           notify_on_updates: boolean
           version: string | null
+          platform: string | null
         }
         Insert: {
           id?: string
@@ -61,6 +65,7 @@ export type Database = {
           submitter_email?: string | null
           notify_on_updates?: boolean
           version?: string | null
+          platform?: string | null
         }
         Update: {
           id?: string
@@ -74,6 +79,7 @@ export type Database = {
           submitter_email?: string | null
           notify_on_updates?: boolean
           version?: string | null
+          platform?: string | null
         }
       }
       votes: {

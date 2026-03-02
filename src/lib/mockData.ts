@@ -7,6 +7,7 @@ export const mockApps: App[] = [
     slug: 'taskflow',
     description: 'Project management and task tracking',
     logo_url: null,
+    platforms: ['web', 'ios', 'android'],
     created_at: '2024-01-15T10:00:00Z',
   },
   {
@@ -15,6 +16,7 @@ export const mockApps: App[] = [
     slug: 'codesnap',
     description: 'Beautiful code screenshots',
     logo_url: null,
+    platforms: ['web'],
     created_at: '2024-02-20T14:30:00Z',
   },
   {
@@ -23,6 +25,7 @@ export const mockApps: App[] = [
     slug: 'dataviz',
     description: 'Data visualization platform',
     logo_url: null,
+    platforms: ['web', 'desktop'],
     created_at: '2024-03-10T09:15:00Z',
   },
 ];
@@ -46,6 +49,7 @@ export const mockFeedback: FeedbackItem[] = [
     description: 'When I create a task on mobile, it does not appear on desktop until I refresh.',
     status: 'progress',
     vote_count: 28,
+    platform: 'ios',
     created_at: '2024-03-05T12:00:00Z',
   },
   {
@@ -86,6 +90,7 @@ export const mockFeedback: FeedbackItem[] = [
     description: 'Generic types are not highlighted correctly in TypeScript files.',
     status: 'planned',
     vote_count: 19,
+    platform: 'web',
     created_at: '2024-03-12T09:00:00Z',
   },
 ];

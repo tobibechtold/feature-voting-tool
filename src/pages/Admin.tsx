@@ -42,6 +42,7 @@ import { useApps, useCreateApp, useUpdateApp, useDeleteApp } from '@/hooks/useAp
 import { useUploadLogo, useDeleteLogo } from '@/hooks/useStorage';
 import { useToast } from '@/hooks/use-toast';
 import { App } from '@/types';
+import { formatPlatformsInput, parsePlatformsInput } from '@/lib/platforms';
 
 export default function Admin() {
   const { isAdmin, authLoading } = useApp();
@@ -64,6 +65,7 @@ export default function Admin() {
     name: '',
     slug: '',
     description: '',
+    platforms: 'web',
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export default function Admin() {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', slug: '', description: '' });
+    setFormData({ name: '', slug: '', description: '', platforms: 'web' });
     setLogoFile(null);
     setLogoPreview(null);
     setRemoveLogo(false);
@@ -106,6 +108,7 @@ export default function Admin() {
       name: app.name,
       slug: app.slug,
       description: app.description || '',
+      platforms: formatPlatformsInput(app.platforms || []),
     });
     setLogoPreview(app.logo_url);
     setLogoFile(null);
@@ -135,6 +138,15 @@ export default function Admin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedPlatforms = parsePlatformsInput(formData.platforms);
+    if (parsedPlatforms.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'At least one platform is required',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     try {
       let logoUrl: string | null = editingApp?.logo_url || null;
@@ -158,6 +170,7 @@ export default function Admin() {
           slug: formData.slug.toLowerCase().replace(/\s+/g, '-'),
           description: formData.description || null,
           logo_url: logoUrl,
+          platforms: parsedPlatforms,
         });
         toast({ title: t('appUpdated') });
       } else {
@@ -166,6 +179,7 @@ export default function Admin() {
           name: formData.name,
           slug: formData.slug.toLowerCase().replace(/\s+/g, '-'),
           description: formData.description || null,
+          platforms: parsedPlatforms,
         });
 
         // Upload logo if provided
@@ -456,6 +470,19 @@ export default function Admin() {
                 }
                 placeholder="Optional description..."
                 rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="platforms">{t('supportedPlatforms')}</Label>
+              <Input
+                id="platforms"
+                value={formData.platforms}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, platforms: e.target.value }))
+                }
+                placeholder={t('platformPlaceholder')}
+                required
               />
             </div>
             

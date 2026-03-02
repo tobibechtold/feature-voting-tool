@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Lightbulb, Bug, ImagePlus, X } from 'lucide-react';
 import {
   Dialog,
@@ -12,9 +12,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FeedbackType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { normalizePlatformLabel } from '@/lib/platforms';
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -23,10 +31,12 @@ interface CreateFeedbackDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type: FeedbackType;
+  platforms: string[];
   onSubmit: (data: { 
     title: string; 
     description: string; 
     type: FeedbackType;
+    platform?: string;
     email?: string;
     notifyOnUpdates?: boolean;
     screenshots?: File[];
@@ -37,6 +47,7 @@ export function CreateFeedbackDialog({
   open,
   onOpenChange,
   type,
+  platforms,
   onSubmit,
 }: CreateFeedbackDialogProps) {
   const { t } = useTranslation();
@@ -46,6 +57,7 @@ export function CreateFeedbackDialog({
   const [email, setEmail] = useState('');
   const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [platform, setPlatform] = useState<string>('');
   const [screenshots, setScreenshots] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +102,7 @@ export function CreateFeedbackDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
+    if (type === 'bug' && !platform) return;
     
     if (email && !isValidEmail(email)) {
       toast({
@@ -106,6 +119,7 @@ export function CreateFeedbackDialog({
         title: title.trim(), 
         description: description.trim(), 
         type,
+        platform: type === 'bug' ? platform : undefined,
         email: email.trim() || undefined,
         notifyOnUpdates: email.trim() ? notifyOnUpdates : false,
         screenshots: screenshots.length > 0 ? screenshots : undefined,
@@ -117,6 +131,7 @@ export function CreateFeedbackDialog({
       setDescription('');
       setEmail('');
       setNotifyOnUpdates(true);
+      setPlatform('');
       setScreenshots([]);
       setPreviews([]);
       onOpenChange(false);
@@ -126,6 +141,15 @@ export function CreateFeedbackDialog({
   };
 
   const isFeature = type === 'feature';
+
+  useEffect(() => {
+    if (!open) return;
+    if (type === 'bug') {
+      setPlatform((prev) => prev || platforms[0] || '');
+      return;
+    }
+    setPlatform('');
+  }, [open, type, platforms]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,6 +203,24 @@ export function CreateFeedbackDialog({
               required
             />
           </div>
+
+          {!isFeature && (
+            <div className="space-y-2">
+              <Label>{t('platform')}</Label>
+              <Select value={platform} onValueChange={setPlatform}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('selectPlatform')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {platforms.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {normalizePlatformLabel(p)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Screenshot attachment */}
           <div className="space-y-2">
@@ -264,7 +306,7 @@ export function CreateFeedbackDialog({
             <Button
               type="submit"
               variant={isFeature ? 'feature' : 'bug'}
-              disabled={isSubmitting || !title.trim() || !description.trim() || !isValidEmail(email)}
+              disabled={isSubmitting || !title.trim() || !description.trim() || !isValidEmail(email) || (!isFeature && !platform)}
             >
               {t('submit')}
             </Button>
