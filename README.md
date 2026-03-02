@@ -4,6 +4,20 @@ Feature Voting Tool for my apps. Deployed at https://featurevoting.tobibechtold.
 
 If you want to use this tool for your own apps, you can deploy it to any static host (for example Vercel or Netlify) and connect it to your own Supabase project.
 
+## Features
+
+- Multi-app public feedback board with feature requests and bug reports
+- App-level platform configuration (for example `ios`, `android`, `web`)
+- Platform-specific bug reporting and platform badges on bug items
+- Voting system with duplicate-vote protection
+- Comment threads with admin and user comments
+- Screenshot attachments for feedback items
+- Admin moderation (status updates, app management, delete workflows)
+- Release management with per-platform release targets and dates (including `all` platform for multi-platform apps)
+- Public changelog grouped by release version with platform release status
+- Email notifications via Resend (new feedback, status updates, replies)
+- reCAPTCHA v3 protection for public comment submissions
+
 ## 1. Prerequisites
 
 - A Supabase project
