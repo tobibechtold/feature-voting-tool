@@ -132,6 +132,7 @@ Important:
 3. Enable Email/Password and create a user.
 4. Copy the user UID.
 5. Insert a row in `user_roles` with that UID and role `admin`.
+6. Login by navigating to the /login route
 
 ## 8. Supabase Auth configuration
 
@@ -166,5 +167,6 @@ Run these checks in order:
 3. Confirm admin receives a "new feedback" email.
 4. Open the feedback detail page and submit a user comment with reCAPTCHA.
 5. Confirm the comment is stored in Supabase `comments`.
-6. As admin, change feedback status and verify submitter notification email.
-7. As admin, reply to the thread and verify comment-reply notification emails.
+6. Login by navigating to the /login route
+7. As admin, change feedback status and verify submitter notification email.
+8. As admin, reply to the thread and verify comment-reply notification emails.
