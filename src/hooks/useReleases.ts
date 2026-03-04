@@ -32,6 +32,10 @@ export interface FeedbackReleaseTargetView {
   semver: string;
 }
 
+type FeedbackReleaseTargetRow = {
+  release_group: { semver: string } | null;
+};
+
 export function useReleaseGroups(appId: string | undefined) {
   return useQuery({
     queryKey: ['release-groups', appId],
@@ -161,8 +165,38 @@ export function useAssignFeedbackRelease() {
       semver: string;
       platform: string;
     }) => {
+      await assignFeedbackRelease({
+        appId,
+        feedbackId,
+        semver,
+        platform,
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['release-groups', variables.appId] });
+      queryClient.invalidateQueries({ queryKey: ['feedback-release-targets', variables.feedbackId] });
+      queryClient.invalidateQueries({ queryKey: ['feedback'] });
+      queryClient.invalidateQueries({ queryKey: ['changelog'] });
+    },
+  });
+}
+
+export async function assignFeedbackRelease({
+  supabaseClient = supabase,
+  appId,
+  feedbackId,
+  semver,
+  platform,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any;
+  appId: string;
+  feedbackId: string;
+  semver: string;
+  platform: string;
+}) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: releaseGroup, error: releaseGroupError } = await (supabase as any)
+      const { data: releaseGroup, error: releaseGroupError } = await (supabaseClient as any)
         .from('release_groups')
         .upsert(
           { app_id: appId, semver },
@@ -173,15 +207,30 @@ export function useAssignFeedbackRelease() {
 
       if (releaseGroupError) throw releaseGroupError;
 
+      // Preserve published metadata for existing rows.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: releasePlatformError } = await (supabase as any)
+      const { data: existingPlatformRow, error: existingPlatformError } = await (supabaseClient as any)
+        .from('release_group_platforms')
+        .select('status,released_at')
+        .eq('release_group_id', releaseGroup.id)
+        .eq('platform', platform)
+        .maybeSingle();
+
+      if (existingPlatformError) throw existingPlatformError;
+
+      const nextStatus = existingPlatformRow?.status ?? 'planned';
+      const nextReleasedAt = existingPlatformRow?.released_at ?? null;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: releasePlatformError } = await (supabaseClient as any)
         .from('release_group_platforms')
         .upsert(
           {
             release_group_id: releaseGroup.id,
             platform,
             version: semver,
-            status: 'planned',
+            status: nextStatus,
+            released_at: nextReleasedAt,
           },
           { onConflict: 'release_group_id,platform' }
         );
@@ -190,7 +239,7 @@ export function useAssignFeedbackRelease() {
 
       if (platform === 'all') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: deleteTargetsError } = await (supabase as any)
+        const { error: deleteTargetsError } = await (supabaseClient as any)
           .from('feedback_release_targets')
           .delete()
           .eq('feedback_id', feedbackId);
@@ -198,7 +247,7 @@ export function useAssignFeedbackRelease() {
         if (deleteTargetsError) throw deleteTargetsError;
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: deleteTargetsError } = await (supabase as any)
+        const { error: deleteTargetsError } = await (supabaseClient as any)
           .from('feedback_release_targets')
           .delete()
           .eq('feedback_id', feedbackId)
@@ -208,7 +257,7 @@ export function useAssignFeedbackRelease() {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: targetError } = await (supabase as any)
+      const { error: targetError } = await (supabaseClient as any)
         .from('feedback_release_targets')
         .upsert(
           {
@@ -223,12 +272,70 @@ export function useAssignFeedbackRelease() {
 
       // Keep existing legacy column in sync for now.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: feedbackError } = await (supabase as any)
+      const { error: feedbackError } = await (supabaseClient as any)
         .from('feedback')
         .update({ version: semver })
         .eq('id', feedbackId);
 
       if (feedbackError) throw feedbackError;
+}
+
+export async function removeFeedbackReleaseTarget({
+  supabaseClient = supabase,
+  targetId,
+  feedbackId,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any;
+  targetId: string;
+  feedbackId: string;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: deleteError } = await (supabaseClient as any)
+    .from('feedback_release_targets')
+    .delete()
+    .eq('id', targetId);
+
+  if (deleteError) throw deleteError;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: remainingTargets, error: remainingTargetsError } = await (supabaseClient as any)
+    .from('feedback_release_targets')
+    .select(`
+      release_group:release_group_id (
+        semver
+      )
+    `)
+    .eq('feedback_id', feedbackId);
+
+  if (remainingTargetsError) throw remainingTargetsError;
+
+  const rows = (remainingTargets || []) as FeedbackReleaseTargetRow[];
+  const nextVersion = rows.find((row) => row.release_group?.semver)?.release_group?.semver ?? null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: feedbackUpdateError } = await (supabaseClient as any)
+    .from('feedback')
+    .update({ version: nextVersion })
+    .eq('id', feedbackId);
+
+  if (feedbackUpdateError) throw feedbackUpdateError;
+}
+
+export function useRemoveFeedbackReleaseTarget() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      targetId,
+      feedbackId,
+      appId,
+    }: {
+      targetId: string;
+      feedbackId: string;
+      appId: string;
+    }) => {
+      await removeFeedbackReleaseTarget({ targetId, feedbackId });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['release-groups', variables.appId] });

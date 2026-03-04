@@ -5,6 +5,7 @@ import { ArrowLeft, Send, User, ShieldCheck, Trash2, Tag, X } from 'lucide-react
 import { Header } from '@/components/Header';
 import { VoteButton } from '@/components/VoteButton';
 import { StatusSelect } from '@/components/StatusSelect';
+import { ReleaseTargetBadges } from '@/components/ReleaseTargetBadges';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,7 +40,7 @@ import { useApp as useAppData } from '@/hooks/useApps';
 import { useFeedbackItem, useVotedItems, useVote, useUpdateFeedbackStatus, useDeleteFeedback } from '@/hooks/useFeedback';
 import { useComments, useCreateComment, useCreateUserComment, useDeleteComment } from '@/hooks/useComments';
 import { useAttachments, useDeleteAttachment } from '@/hooks/useAttachments';
-import { useAssignFeedbackRelease, useFeedbackReleaseTargets } from '@/hooks/useReleases';
+import { useAssignFeedbackRelease, useFeedbackReleaseTargets, useRemoveFeedbackReleaseTarget } from '@/hooks/useReleases';
 import { useToast } from '@/hooks/use-toast';
 import { FeedbackStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -63,6 +64,7 @@ export default function FeedbackDetail() {
   const vote = useVote();
   const updateStatus = useUpdateFeedbackStatus();
   const assignFeedbackRelease = useAssignFeedbackRelease();
+  const removeFeedbackReleaseTarget = useRemoveFeedbackReleaseTarget();
   const createComment = useCreateComment();
   const createUserComment = useCreateUserComment();
   const deleteFeedback = useDeleteFeedback();
@@ -446,12 +448,28 @@ export default function FeedbackDetail() {
                     {releaseTargets.length > 0 && (
                       <div className="flex items-center gap-2 flex-wrap text-sm">
                         <Tag className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">{t('includedInVersion')}:</span>
-                        {releaseTargets.map((target) => (
-                          <Badge key={target.id} variant="secondary" className="font-mono">
-                            {normalizePlatformLabel(target.platform)} v{target.semver.replace(/^v/, '')}
-                          </Badge>
-                        ))}
+                        <ReleaseTargetBadges
+                          targets={releaseTargets}
+                          isAdmin={isAdmin}
+                          isRemoving={removeFeedbackReleaseTarget.isPending}
+                          label={t('includedInVersion')}
+                          onRemove={async (targetId) => {
+                            try {
+                              await removeFeedbackReleaseTarget.mutateAsync({
+                                targetId,
+                                feedbackId: item.id,
+                                appId: app.id,
+                              });
+                              toast({ title: 'Version removed' });
+                            } catch (error) {
+                              toast({
+                                title: 'Error',
+                                description: (error as Error).message,
+                                variant: 'destructive',
+                              });
+                            }
+                          }}
+                        />
                       </div>
                     )}
                   </div>
