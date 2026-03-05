@@ -39,6 +39,13 @@ export const translations = {
     statusCompleted: 'Completed',
     statusOpen: 'Open',
     statusWontDo: "Won't Do",
+    sortBy: 'Sort by',
+    sortPopularity: 'Popularity',
+    sortDate: 'Date',
+    sortVersion: 'Version',
+    filterVersion: 'Version filter',
+    allVersions: 'All versions',
+    noVersion: 'No version',
     
     // Voting
     vote: 'Vote',
@@ -179,6 +186,13 @@ export const translations = {
     statusCompleted: 'Abgeschlossen',
     statusOpen: 'Offen',
     statusWontDo: 'Wird nicht umgesetzt',
+    sortBy: 'Sortieren nach',
+    sortPopularity: 'Beliebtheit',
+    sortDate: 'Datum',
+    sortVersion: 'Version',
+    filterVersion: 'Versionsfilter',
+    allVersions: 'Alle Versionen',
+    noVersion: 'Keine Version',
     
     // Voting
     vote: 'Abstimmen',

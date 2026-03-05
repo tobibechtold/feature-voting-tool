@@ -7,6 +7,7 @@ import { CreateFeedbackDialog } from '@/components/CreateFeedbackDialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OfflineState } from '@/components/OfflineState';
 import { QueryErrorState } from '@/components/QueryErrorState';
 import {
@@ -18,10 +19,15 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApp as useAppData } from '@/hooks/useApps';
 import { useFeedback, useVotedItems, useVote, useCreateFeedback } from '@/hooks/useFeedback';
+import {
+  filterAndSortFeedback,
+  getVersionOptions,
+  OverviewFilterType,
+  OverviewSortMode,
+  OverviewVersionFilter,
+} from '@/lib/feedbackOverview';
 
 import { FeedbackType, FeedbackStatus } from '@/types';
-
-type FilterType = 'all' | 'feature' | 'bug';
 
 export default function AppFeedback() {
   const { slug } = useParams<{ slug: string }>();
@@ -33,37 +39,25 @@ export default function AppFeedback() {
   const vote = useVote();
   const createFeedback = useCreateFeedback();
   
-  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [filterType, setFilterType] = useState<OverviewFilterType>('all');
   const [filterStatus, setFilterStatus] = useState<FeedbackStatus[]>([]);
+  const [sortMode, setSortMode] = useState<OverviewSortMode>('popularity');
+  const [versionFilter, setVersionFilter] = useState<OverviewVersionFilter>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<FeedbackType>('feature');
 
-  const filteredFeedback = useMemo(() => {
-    if (!feedback) return [];
-    
-    let items = [...feedback];
-    
-    if (filterType !== 'all') {
-      items = items.filter((f) => f.type === filterType);
-    }
-    
-    if (filterStatus.length > 0) {
-      items = items.filter((f) => filterStatus.includes(f.status));
-    }
-    
-    // Sort: non-completed/wont_do first (by votes), then completed/wont_do (by votes)
-    items.sort((a, b) => {
-      const aFinished = a.status === 'completed' || a.status === 'wont_do';
-      const bFinished = b.status === 'completed' || b.status === 'wont_do';
-      
-      if (aFinished !== bFinished) {
-        return aFinished ? 1 : -1; // Completed/wont_do at bottom
-      }
-      return b.vote_count - a.vote_count; // Within group, sort by votes
-    });
-    
-    return items;
-  }, [feedback, filterType, filterStatus]);
+  const versionOptions = useMemo(() => getVersionOptions(feedback || []), [feedback]);
+
+  const filteredFeedback = useMemo(
+    () =>
+      filterAndSortFeedback(feedback || [], {
+        filterType,
+        filterStatuses: filterStatus,
+        sortMode,
+        versionFilter,
+      }),
+    [feedback, filterType, filterStatus, sortMode, versionFilter]
+  );
 
   const handleVote = (id: string) => {
     if (votedItems?.has(id)) return;
@@ -245,14 +239,44 @@ export default function AppFeedback() {
           </p>
 
           {/* Filters */}
-          <div className="flex items-center gap-4 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
-            <Tabs value={filterType} onValueChange={(v) => setFilterType(v as FilterType)}>
+          <div className="flex flex-wrap items-center gap-4 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
+            <Tabs value={filterType} onValueChange={(v) => setFilterType(v as OverviewFilterType)}>
               <TabsList>
                 <TabsTrigger value="all">{t('all')}</TabsTrigger>
                 <TabsTrigger value="feature">{t('features')}</TabsTrigger>
                 <TabsTrigger value="bug">{t('bugs')}</TabsTrigger>
               </TabsList>
             </Tabs>
+
+            <div className="w-full sm:w-[180px]">
+              <Select value={sortMode} onValueChange={(value) => setSortMode(value as OverviewSortMode)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('sortBy')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="popularity">{t('sortPopularity')}</SelectItem>
+                  <SelectItem value="date">{t('sortDate')}</SelectItem>
+                  <SelectItem value="version">{t('sortVersion')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full sm:w-[220px]">
+              <Select value={versionFilter} onValueChange={(value) => setVersionFilter(value as OverviewVersionFilter)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('filterVersion')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('allVersions')}</SelectItem>
+                  {versionOptions.map((version) => (
+                    <SelectItem key={version} value={version}>
+                      v{version}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="none">{t('noVersion')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
