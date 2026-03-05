@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Lightbulb, Bug, Filter, RefreshCw, FileText } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -26,6 +26,7 @@ import {
   OverviewSortMode,
   OverviewVersionFilter,
 } from '@/lib/feedbackOverview';
+import { loadOverviewSortMode, saveOverviewSortMode } from '@/lib/sortPreference';
 
 import { FeedbackType, FeedbackStatus } from '@/types';
 
@@ -41,12 +42,20 @@ export default function AppFeedback() {
   
   const [filterType, setFilterType] = useState<OverviewFilterType>('all');
   const [filterStatus, setFilterStatus] = useState<FeedbackStatus[]>([]);
-  const [sortMode, setSortMode] = useState<OverviewSortMode>('popularity');
+  const [sortMode, setSortMode] = useState<OverviewSortMode>(() => loadOverviewSortMode(slug));
   const [versionFilter, setVersionFilter] = useState<OverviewVersionFilter>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<FeedbackType>('feature');
 
   const versionOptions = useMemo(() => getVersionOptions(feedback || []), [feedback]);
+
+  useEffect(() => {
+    setSortMode(loadOverviewSortMode(slug));
+  }, [slug]);
+
+  useEffect(() => {
+    saveOverviewSortMode(slug, sortMode);
+  }, [slug, sortMode]);
 
   const filteredFeedback = useMemo(
     () =>
