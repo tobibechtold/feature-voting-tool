@@ -3,6 +3,7 @@ import { supabase, publicSupabase } from '@/integrations/supabase/client';
 import { Comment, FeedbackItem } from '@/types';
 import { promiseWithTimeout } from '@/lib/queryCache';
 import { sendNotification } from '@/lib/notificationService';
+import { createUserComment, CreateUserCommentInput } from './createUserComment';
 
 const REQUEST_TIMEOUT = 10000; // 10 seconds
 
@@ -150,38 +151,12 @@ export function useCreateComment() {
   });
 }
 
-interface CreateUserCommentInput {
-  feedback_id: string;
-  content: string;
-  commenter_email: string;
-  notify_on_reply: boolean;
-  recaptcha_token: string;
-}
-
 export function useCreateUserComment() {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (input: CreateUserCommentInput) => {
-      const { data, error } = await supabase.functions.invoke("verify-comment", {
-        body: input,
-      });
-
-      if (error) {
-        throw new Error("Failed to submit comment");
-      }
-
-      const payload = data as { code?: string; error?: string } | null;
-
-      if (payload?.code === "CAPTCHA_FAILED") {
-        throw new Error("CAPTCHA_FAILED");
-      }
-
-      if (payload?.error) {
-        throw new Error(payload.error);
-      }
-
-      return data as Comment;
+      return createUserComment(publicSupabase, input);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['comments', data.feedback_id] });
