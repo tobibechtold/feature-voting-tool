@@ -437,3 +437,14 @@ export async function moveFeedbackRoadmapItem({
 
   return data as FeedbackItem;
 }
+
+export function useMoveFeedbackRoadmapItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: moveFeedbackRoadmapItem,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feedback'] });
+    },
+  });
+}
