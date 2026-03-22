@@ -7,6 +7,31 @@ import { sendNotification } from '@/lib/notificationService';
 
 const REQUEST_TIMEOUT = 10000; // 10 seconds
 
+type RoadmapLaneItem = {
+  id: string;
+  roadmap_position?: number | null;
+};
+
+function getRoadmapPositionForInsertion(
+  destinationItems: RoadmapLaneItem[],
+  destinationIndex: number
+): number {
+  const orderedItems = [...destinationItems].sort(
+    (a, b) => (a.roadmap_position ?? 0) - (b.roadmap_position ?? 0)
+  );
+  const boundedIndex = Math.min(Math.max(destinationIndex, 0), orderedItems.length);
+  const previousItem = orderedItems[boundedIndex - 1];
+  const nextItem = orderedItems[boundedIndex];
+  const previousPosition = previousItem?.roadmap_position ?? null;
+  const nextPosition = nextItem?.roadmap_position ?? null;
+
+  if (previousPosition === null && nextPosition === null) return 1;
+  if (previousPosition === null) return nextPosition! - 1;
+  if (nextPosition === null) return previousPosition + 1;
+  if (nextPosition > previousPosition) return previousPosition + (nextPosition - previousPosition) / 2;
+  return previousPosition + 1;
+}
+
 export function useFeedback(appId: string | undefined) {
   const cacheKey = `feedback:${appId}`;
   const cached = appId ? getCachedData<FeedbackItem[]>(cacheKey) : null;
@@ -379,4 +404,36 @@ export function useUpdateFeedbackVersion() {
       queryClient.invalidateQueries({ queryKey: ['changelog'] });
     },
   });
+}
+
+export async function moveFeedbackRoadmapItem({
+  supabaseClient = supabase,
+  feedbackId,
+  destinationStatus,
+  destinationItems,
+  destinationIndex,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any;
+  feedbackId: string;
+  destinationStatus: FeedbackStatus;
+  destinationItems: RoadmapLaneItem[];
+  destinationIndex: number;
+}) {
+  const roadmapPosition = getRoadmapPositionForInsertion(destinationItems, destinationIndex);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabaseClient as any)
+    .from('feedback')
+    .update({
+      status: destinationStatus,
+      roadmap_position: roadmapPosition,
+    } as never)
+    .eq('id', feedbackId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data as FeedbackItem;
 }
