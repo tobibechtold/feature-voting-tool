@@ -7,7 +7,7 @@ export interface ReleaseGroupWithDetails extends ReleaseGroup {
   platforms: ReleaseGroupPlatform[];
   items: Array<{
     feedback: FeedbackItem;
-    target_platform: string;
+    target_platforms: string[];
   }>;
 }
 
@@ -97,12 +97,7 @@ export function useReleaseGroups(appId: string | undefined) {
             if (b.platform === 'all') return 1;
             return a.platform.localeCompare(b.platform);
           }),
-          items: (row.feedback_release_targets || [])
-            .filter((target) => !!target.feedback)
-            .map((target) => ({
-              feedback: target.feedback as FeedbackItem,
-              target_platform: target.platform,
-            })),
+          items: aggregateReleaseGroupItems(row.feedback_release_targets || []),
         }))
         .sort((a, b) => compareVersions(a.semver, b.semver));
 
@@ -110,6 +105,31 @@ export function useReleaseGroups(appId: string | undefined) {
     },
     enabled: !!appId,
   });
+}
+
+function aggregateReleaseGroupItems(
+  targets: NonNullable<ReleaseGroupQueryRow['feedback_release_targets']>
+): ReleaseGroupWithDetails['items'] {
+  const itemsByFeedbackId = new Map<string, ReleaseGroupWithDetails['items'][number]>();
+
+  targets.forEach((target) => {
+    if (!target.feedback) return;
+
+    const existingItem = itemsByFeedbackId.get(target.feedback.id);
+    if (existingItem) {
+      if (!existingItem.target_platforms.includes(target.platform)) {
+        existingItem.target_platforms.push(target.platform);
+      }
+      return;
+    }
+
+    itemsByFeedbackId.set(target.feedback.id, {
+      feedback: target.feedback as FeedbackItem,
+      target_platforms: [target.platform],
+    });
+  });
+
+  return [...itemsByFeedbackId.values()];
 }
 
 export function useFeedbackReleaseTargets(feedbackId: string | undefined) {

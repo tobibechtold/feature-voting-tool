@@ -306,7 +306,7 @@ export default function Changelog() {
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-3">
-                      {group.items.map(({ feedback, target_platform }) => {
+                      {group.items.map(({ feedback, target_platforms }) => {
                         const getStatusLabel = (status: string) => {
                           switch (status) {
                             case 'planned':
@@ -323,7 +323,7 @@ export default function Changelog() {
                         };
 
                         return (
-                          <li key={`${group.id}-${feedback.id}-${target_platform}`}>
+                          <li key={`${group.id}-${feedback.id}`}>
                             <Link
                               to={`/app/${slug}/${feedback.id}`}
                               className="flex flex-col gap-2 group hover:bg-muted/50 -mx-2 px-2 py-2 rounded-md transition-colors"
@@ -346,9 +346,11 @@ export default function Changelog() {
                                 >
                                   {getStatusLabel(feedback.status)}
                                 </Badge>
-                                <Badge variant="secondary" className="shrink-0">
-                                  {normalizePlatformLabel(target_platform)}
-                                </Badge>
+                                {target_platforms.map((targetPlatform) => (
+                                  <Badge key={`${feedback.id}-${targetPlatform}`} variant="secondary" className="shrink-0">
+                                    {normalizePlatformLabel(targetPlatform)}
+                                  </Badge>
+                                ))}
                               </div>
                               <span className="text-foreground group-hover:text-primary transition-colors">
                                 {feedback.title}
