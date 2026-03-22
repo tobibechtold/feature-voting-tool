@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { RoadmapBoard } from '@/components/roadmap/RoadmapBoard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { OfflineState } from '@/components/OfflineState';
@@ -11,12 +10,8 @@ import { QueryErrorState } from '@/components/QueryErrorState';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApp as useAppData } from '@/hooks/useApps';
 import { useAuth } from '@/hooks/useAuth';
-import { useFeedback } from '@/hooks/useFeedback';
-import {
-  buildFeedbackStateSections,
-  sortRoadmapLaneItems,
-  type OverviewSortMode,
-} from '@/lib/feedbackOverview';
+import { useFeedback, useMoveFeedbackRoadmapItem } from '@/hooks/useFeedback';
+import { type OverviewSortMode } from '@/lib/feedbackOverview';
 import { loadRoadmapSortMode, saveRoadmapSortMode } from '@/lib/roadmapPreferences';
 
 function getStatusTranslationKey(status: 'open' | 'planned' | 'progress' | 'completed' | 'wont_do') {
@@ -38,6 +33,7 @@ export default function Roadmap() {
   const { slug } = useParams<{ slug: string }>();
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
+  const moveRoadmapItem = useMoveFeedbackRoadmapItem();
 
   const {
     data: app,
@@ -64,15 +60,6 @@ export default function Roadmap() {
   useEffect(() => {
     saveRoadmapSortMode(slug, sortMode);
   }, [slug, sortMode]);
-
-  const sections = useMemo(
-    () =>
-      buildFeedbackStateSections(feedback || []).map((section) => ({
-        ...section,
-        items: sortRoadmapLaneItems(section.items, sortMode),
-      })),
-    [feedback, sortMode]
-  );
 
   const isAppPaused = appFetchStatus === 'paused';
   const isFeedbackPaused = feedbackFetchStatus === 'paused';
@@ -141,7 +128,7 @@ export default function Roadmap() {
                 {t('roadmap')} - {app.name}
               </h1>
               <p className="text-muted-foreground">
-                {isAdmin ? 'Admin drag and drop will be enabled here.' : 'Public roadmap view.'}
+                {isAdmin ? 'Drag items between lanes or reorder them within a lane.' : 'Public roadmap view.'}
               </p>
             </div>
 
@@ -171,36 +158,14 @@ export default function Roadmap() {
             ))}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {sections.map((section) => (
-              <Card key={section.status} className="min-h-[16rem]">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2 text-base">
-                    <span>{t(getStatusTranslationKey(section.status))}</span>
-                    <Badge variant="secondary">{section.items.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {section.items.length > 0 ? (
-                    section.items.map((item) => (
-                      <Link
-                        key={item.id}
-                        to={`/app/${slug}/${item.id}`}
-                        className="block rounded-lg border p-3 transition-colors hover:border-primary/30 hover:bg-muted/40"
-                      >
-                        <div className="font-medium">{item.title}</div>
-                        <div className="mt-1 text-sm text-muted-foreground line-clamp-2">{item.description}</div>
-                      </Link>
-                    ))
-                  ) : (
-                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-                      No items
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <RoadmapBoard
+            items={feedback || []}
+            appSlug={slug!}
+            sortMode={sortMode}
+            isAdmin={isAdmin}
+            getStatusLabel={(status) => t(getStatusTranslationKey(status))}
+            onMoveItem={moveRoadmapItem.mutateAsync}
+          />
         )}
       </main>
     </div>

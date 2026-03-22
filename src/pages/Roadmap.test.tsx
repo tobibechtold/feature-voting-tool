@@ -74,6 +74,9 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 vi.mock('@/hooks/useFeedback', () => ({
+  useMoveFeedbackRoadmapItem: () => ({
+    mutateAsync: vi.fn().mockResolvedValue(undefined),
+  }),
   useFeedback: () => ({
     data: [
       {
