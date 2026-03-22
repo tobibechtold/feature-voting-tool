@@ -3,6 +3,14 @@ import type { FeedbackItem, FeedbackStatus, FeedbackType } from '@/types';
 export type OverviewFilterType = 'all' | FeedbackType;
 export type OverviewSortMode = 'popularity' | 'date' | 'version';
 export type OverviewVersionFilter = 'all' | 'none' | string;
+export const FEEDBACK_STATUS_ORDER: FeedbackStatus[] = ['open', 'planned', 'progress', 'completed', 'wont_do'];
+
+export type FeedbackStateSection = {
+  status: FeedbackStatus;
+  items: FeedbackItem[];
+};
+
+export type FeedbackStateExpansion = Record<FeedbackStatus, boolean>;
 
 type FilterAndSortOptions = {
   filterType: OverviewFilterType;
@@ -52,6 +60,51 @@ function compareBySortMode(a: FeedbackItem, b: FeedbackItem, sortMode: OverviewS
   }
 
   return b.vote_count - a.vote_count;
+}
+
+export function getDefaultFeedbackStateExpansion(): FeedbackStateExpansion {
+  return {
+    open: true,
+    planned: true,
+    progress: true,
+    completed: false,
+    wont_do: false,
+  };
+}
+
+export function buildFeedbackStateSections(items: FeedbackItem[]): FeedbackStateSection[] {
+  const itemsByStatus = new Map<FeedbackStatus, FeedbackItem[]>(
+    FEEDBACK_STATUS_ORDER.map((status) => [status, []])
+  );
+
+  items.forEach((item) => {
+    itemsByStatus.get(item.status)?.push(item);
+  });
+
+  return FEEDBACK_STATUS_ORDER.map((status) => ({
+    status,
+    items: itemsByStatus.get(status) || [],
+  }));
+}
+
+export function sortRoadmapLaneItems(items: FeedbackItem[], sortMode: OverviewSortMode): FeedbackItem[] {
+  return [...items].sort((a, b) => {
+    const aPositioned = a.roadmap_position !== null && a.roadmap_position !== undefined;
+    const bPositioned = b.roadmap_position !== null && b.roadmap_position !== undefined;
+
+    if (aPositioned && bPositioned) {
+      if (a.roadmap_position !== b.roadmap_position) {
+        return (a.roadmap_position as number) - (b.roadmap_position as number);
+      }
+    } else if (aPositioned !== bPositioned) {
+      return aPositioned ? -1 : 1;
+    }
+
+    const modeResult = compareBySortMode(a, b, sortMode);
+    if (modeResult !== 0) return modeResult;
+
+    return b.vote_count - a.vote_count;
+  });
 }
 
 export function getVersionOptions(items: FeedbackItem[]): string[] {
