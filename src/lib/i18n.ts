@@ -43,6 +43,7 @@ export const translations = {
     sortPopularity: 'Popularity',
     sortDate: 'Date',
     sortVersion: 'Version',
+    groupByState: 'Group by state',
     filterVersion: 'Version filter',
     allVersions: 'All versions',
     noVersion: 'No version',
@@ -121,6 +122,7 @@ export const translations = {
     
     // Changelog & Version
     changelog: 'Changelog',
+    roadmap: 'Roadmap',
     version: 'Version',
     versionPlaceholder: 'e.g., 1.2.0',
     setVersion: 'Set Version',
@@ -190,6 +192,7 @@ export const translations = {
     sortPopularity: 'Beliebtheit',
     sortDate: 'Datum',
     sortVersion: 'Version',
+    groupByState: 'Nach Status gruppieren',
     filterVersion: 'Versionsfilter',
     allVersions: 'Alle Versionen',
     noVersion: 'Keine Version',
@@ -268,6 +271,7 @@ export const translations = {
     
     // Changelog & Version
     changelog: 'Changelog',
+    roadmap: 'Roadmap',
     version: 'Version',
     versionPlaceholder: 'z.B. 1.2.0',
     setVersion: 'Version setzen',

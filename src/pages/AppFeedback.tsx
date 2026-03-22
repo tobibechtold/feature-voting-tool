@@ -3,8 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Lightbulb, Bug, Filter, RefreshCw, FileText } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { FeedbackCard } from '@/components/FeedbackCard';
+import { FeedbackStateSections } from '@/components/feedback/FeedbackStateSections';
 import { CreateFeedbackDialog } from '@/components/CreateFeedbackDialog';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,6 +30,7 @@ import {
   OverviewVersionFilter,
 } from '@/lib/feedbackOverview';
 import { loadOverviewSortMode, saveOverviewSortMode } from '@/lib/sortPreference';
+import { loadGroupedFeedbackEnabled, saveGroupedFeedbackEnabled } from '@/lib/roadmapPreferences';
 
 import { FeedbackType, FeedbackStatus } from '@/types';
 
@@ -44,6 +48,7 @@ export default function AppFeedback() {
   const [filterStatus, setFilterStatus] = useState<FeedbackStatus[]>([]);
   const [sortMode, setSortMode] = useState<OverviewSortMode>(() => loadOverviewSortMode(slug));
   const [versionFilter, setVersionFilter] = useState<OverviewVersionFilter>('all');
+  const [groupByState, setGroupByState] = useState<boolean>(() => loadGroupedFeedbackEnabled(slug));
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<FeedbackType>('feature');
 
@@ -51,11 +56,16 @@ export default function AppFeedback() {
 
   useEffect(() => {
     setSortMode(loadOverviewSortMode(slug));
+    setGroupByState(loadGroupedFeedbackEnabled(slug));
   }, [slug]);
 
   useEffect(() => {
     saveOverviewSortMode(slug, sortMode);
   }, [slug, sortMode]);
+
+  useEffect(() => {
+    saveGroupedFeedbackEnabled(slug, groupByState);
+  }, [slug, groupByState]);
 
   const filteredFeedback = useMemo(
     () =>
@@ -230,6 +240,12 @@ export default function AppFeedback() {
                     {t('changelog')}
                   </Link>
                 </Button>
+                <Button variant="outline" asChild className="w-full sm:w-auto">
+                  <Link to={`/app/${slug}/roadmap`}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    {t('roadmap')}
+                  </Link>
+                </Button>
                 <Button variant="feature" onClick={() => openCreateDialog('feature')} className="w-full sm:w-auto">
                   <Lightbulb className="h-4 w-4 mr-2" />
                   {t('createFeature')}
@@ -332,6 +348,15 @@ export default function AppFeedback() {
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                id="group-by-state"
+                checked={groupByState}
+                onCheckedChange={setGroupByState}
+              />
+              <Label htmlFor="group-by-state">{t('groupByState')}</Label>
+            </div>
           </div>
 
           {/* Show refresh indicator when fetching with existing data */}
@@ -353,20 +378,30 @@ export default function AppFeedback() {
                 <Skeleton key={i} className="h-32 w-full" />
               ))
             ) : filteredFeedback.length > 0 ? (
-              filteredFeedback.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${(index + 2) * 50}ms` }}
-                >
-                  <FeedbackCard
-                    item={item}
-                    appSlug={slug!}
-                    voted={votedItems?.has(item.id) || false}
-                    onVote={handleVote}
-                  />
-                </div>
-              ))
+              groupByState ? (
+                <FeedbackStateSections
+                  slug={slug!}
+                  items={filteredFeedback}
+                  appSlug={slug!}
+                  votedItems={votedItems || new Set()}
+                  onVote={handleVote}
+                />
+              ) : (
+                filteredFeedback.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="animate-fade-in"
+                    style={{ animationDelay: `${(index + 2) * 50}ms` }}
+                  >
+                    <FeedbackCard
+                      item={item}
+                      appSlug={slug!}
+                      voted={votedItems?.has(item.id) || false}
+                      onVote={handleVote}
+                    />
+                  </div>
+                ))
+              )
             ) : !feedbackLoading ? (
               <div className="text-center py-16">
                 <p className="text-muted-foreground">
