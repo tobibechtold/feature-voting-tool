@@ -7,6 +7,59 @@ import { sendNotification } from '@/lib/notificationService';
 
 const REQUEST_TIMEOUT = 10000; // 10 seconds
 
+type RoadmapLaneItem = {
+  id: string;
+  roadmap_position?: number | null;
+};
+
+type RoadmapLaneUpdate = {
+  id: string;
+  status?: FeedbackStatus;
+  roadmap_position: number;
+};
+
+function buildDestinationLaneUpdates(
+  feedbackId: string,
+  destinationStatus: FeedbackStatus,
+  destinationItems: RoadmapLaneItem[],
+  destinationIndex: number
+): RoadmapLaneUpdate[] {
+  const orderedItems = [...destinationItems].sort(
+    (a, b) => (a.roadmap_position ?? 0) - (b.roadmap_position ?? 0)
+  );
+  const boundedIndex = Math.min(Math.max(destinationIndex, 0), orderedItems.length);
+  const nextItems = [...orderedItems];
+
+  nextItems.splice(boundedIndex, 0, {
+    id: feedbackId,
+    roadmap_position: null,
+  });
+
+  return nextItems.map((item, index) => ({
+    id: item.id,
+    roadmap_position: index + 1,
+    ...(item.id === feedbackId ? { status: destinationStatus } : {}),
+  }));
+}
+
+function applyRoadmapFeedbackUpdate(items: FeedbackItem[], updatedItems: FeedbackItem[]): FeedbackItem[] {
+  const updatesById = new Map(updatedItems.map((item) => [item.id, item]));
+
+  return items.map((item) => {
+    const updatedItem = updatesById.get(item.id);
+
+    if (!updatedItem) {
+      return item;
+    }
+
+    return {
+      ...item,
+      status: updatedItem.status,
+      roadmap_position: updatedItem.roadmap_position,
+    };
+  });
+}
+
 export function useFeedback(appId: string | undefined) {
   const cacheKey = `feedback:${appId}`;
   const cached = appId ? getCachedData<FeedbackItem[]>(cacheKey) : null;
@@ -377,6 +430,84 @@ export function useUpdateFeedbackVersion() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
       queryClient.invalidateQueries({ queryKey: ['changelog'] });
+    },
+  });
+}
+
+export async function moveFeedbackRoadmapItem({
+  supabaseClient = supabase,
+  feedbackId,
+  destinationStatus,
+  destinationItems,
+  destinationIndex,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any;
+  feedbackId: string;
+  destinationStatus: FeedbackStatus;
+  destinationItems: RoadmapLaneItem[];
+  destinationIndex: number;
+}) {
+  const destinationLaneUpdates = buildDestinationLaneUpdates(
+    feedbackId,
+    destinationStatus,
+    destinationItems,
+    destinationIndex
+  );
+
+  const results = await Promise.all(
+    destinationLaneUpdates.map(async (laneUpdate) => {
+      const updateValues =
+        laneUpdate.id === feedbackId
+          ? {
+              status: destinationStatus,
+              roadmap_position: laneUpdate.roadmap_position,
+            }
+          : {
+              roadmap_position: laneUpdate.roadmap_position,
+            };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabaseClient as any)
+        .from('feedback')
+        .update(updateValues as never)
+        .eq('id', laneUpdate.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data as FeedbackItem;
+    })
+  );
+
+  return results;
+}
+
+export function useMoveFeedbackRoadmapItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: moveFeedbackRoadmapItem,
+    onSuccess: (data) => {
+      const feedbackQueries = queryClient.getQueriesData<FeedbackItem[]>({
+        queryKey: ['feedback'],
+      });
+
+      feedbackQueries.forEach(([queryKey, currentData]) => {
+        if (!Array.isArray(currentData)) return;
+        if (!currentData.some((item) => data.some((updatedItem) => updatedItem.id === item.id))) return;
+
+        const nextData = applyRoadmapFeedbackUpdate(currentData, data);
+        queryClient.setQueryData(queryKey, nextData);
+
+        const appId = queryKey[1];
+        if (typeof appId === 'string' && appId !== 'item') {
+          setCachedData(`feedback:${appId}`, nextData);
+        }
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
   });
 }

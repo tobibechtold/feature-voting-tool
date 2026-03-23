@@ -45,13 +45,14 @@ export type Database = {
           type: 'feature' | 'bug'
           title: string
           description: string
-          status: 'open' | 'planned' | 'progress' | 'completed'
+          status: 'open' | 'planned' | 'progress' | 'completed' | 'wont_do'
           vote_count: number
           created_at: string
           submitter_email: string | null
           notify_on_updates: boolean
           version: string | null
           platform: string | null
+          roadmap_position: number | null
         }
         Insert: {
           id?: string
@@ -59,13 +60,14 @@ export type Database = {
           type: 'feature' | 'bug'
           title: string
           description: string
-          status?: 'open' | 'planned' | 'progress' | 'completed'
+          status?: 'open' | 'planned' | 'progress' | 'completed' | 'wont_do'
           vote_count?: number
           created_at?: string
           submitter_email?: string | null
           notify_on_updates?: boolean
           version?: string | null
           platform?: string | null
+          roadmap_position?: number | null
         }
         Update: {
           id?: string
@@ -73,13 +75,14 @@ export type Database = {
           type?: 'feature' | 'bug'
           title?: string
           description?: string
-          status?: 'open' | 'planned' | 'progress' | 'completed'
+          status?: 'open' | 'planned' | 'progress' | 'completed' | 'wont_do'
           vote_count?: number
           created_at?: string
           submitter_email?: string | null
           notify_on_updates?: boolean
           version?: string | null
           platform?: string | null
+          roadmap_position?: number | null
         }
       }
       votes: {

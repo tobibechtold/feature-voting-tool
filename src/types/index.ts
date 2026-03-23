@@ -25,6 +25,7 @@ export interface FeedbackItem {
   notify_on_updates?: boolean;
   version?: string | null;
   platform?: string | null;
+  roadmap_position?: number | null;
 }
 
 export interface Vote {

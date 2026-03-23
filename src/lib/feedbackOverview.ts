@@ -3,6 +3,14 @@ import type { FeedbackItem, FeedbackStatus, FeedbackType } from '@/types';
 export type OverviewFilterType = 'all' | FeedbackType;
 export type OverviewSortMode = 'popularity' | 'date' | 'version';
 export type OverviewVersionFilter = 'all' | 'none' | string;
+export const FEEDBACK_STATUS_ORDER: FeedbackStatus[] = ['open', 'planned', 'progress', 'completed', 'wont_do'];
+
+export type FeedbackStateSection = {
+  status: FeedbackStatus;
+  items: FeedbackItem[];
+};
+
+export type FeedbackStateExpansion = Record<FeedbackStatus, boolean>;
 
 type FilterAndSortOptions = {
   filterType: OverviewFilterType;
@@ -54,6 +62,58 @@ function compareBySortMode(a: FeedbackItem, b: FeedbackItem, sortMode: OverviewS
   return b.vote_count - a.vote_count;
 }
 
+export function getDefaultFeedbackStateExpansion(): FeedbackStateExpansion {
+  return {
+    open: true,
+    planned: true,
+    progress: true,
+    completed: false,
+    wont_do: false,
+  };
+}
+
+export function buildFeedbackStateSections(items: FeedbackItem[]): FeedbackStateSection[] {
+  const itemsByStatus = new Map<FeedbackStatus, FeedbackItem[]>(
+    FEEDBACK_STATUS_ORDER.map((status) => [status, []])
+  );
+
+  items.forEach((item) => {
+    itemsByStatus.get(item.status)?.push(item);
+  });
+
+  return FEEDBACK_STATUS_ORDER.map((status) => ({
+    status,
+    items: itemsByStatus.get(status) || [],
+  }));
+}
+
+export function sortRoadmapLaneItems(items: FeedbackItem[], _sortMode?: OverviewSortMode): FeedbackItem[] {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+    }))
+    .sort((a, b) => {
+      const aPositioned = a.item.roadmap_position !== null && a.item.roadmap_position !== undefined;
+      const bPositioned = b.item.roadmap_position !== null && b.item.roadmap_position !== undefined;
+
+      if (aPositioned && bPositioned) {
+        if (a.item.roadmap_position !== b.item.roadmap_position) {
+          return (a.item.roadmap_position as number) - (b.item.roadmap_position as number);
+        }
+
+        return a.index - b.index;
+      }
+
+      if (aPositioned !== bPositioned) {
+        return aPositioned ? -1 : 1;
+      }
+
+      return a.index - b.index;
+    })
+    .map(({ item }) => item);
+}
+
 export function getVersionOptions(items: FeedbackItem[]): string[] {
   const unique = new Set<string>();
   for (const item of items) {
@@ -61,6 +121,22 @@ export function getVersionOptions(items: FeedbackItem[]): string[] {
     if (version) unique.add(version);
   }
   return Array.from(unique).sort(compareVersionsDesc);
+}
+
+export function filterFeedbackByVersion(
+  items: FeedbackItem[],
+  versionFilter: OverviewVersionFilter
+): FeedbackItem[] {
+  if (versionFilter === 'all') {
+    return items;
+  }
+
+  if (versionFilter === 'none') {
+    return items.filter((item) => !normalizeVersion(item.version));
+  }
+
+  const selectedVersion = normalizeVersion(versionFilter);
+  return items.filter((item) => normalizeVersion(item.version) === selectedVersion);
 }
 
 export function filterAndSortFeedback(items: FeedbackItem[], options: FilterAndSortOptions): FeedbackItem[] {
@@ -74,12 +150,7 @@ export function filterAndSortFeedback(items: FeedbackItem[], options: FilterAndS
     nextItems = nextItems.filter((item) => options.filterStatuses.includes(item.status));
   }
 
-  if (options.versionFilter === 'none') {
-    nextItems = nextItems.filter((item) => !normalizeVersion(item.version));
-  } else if (options.versionFilter !== 'all') {
-    const selectedVersion = normalizeVersion(options.versionFilter);
-    nextItems = nextItems.filter((item) => normalizeVersion(item.version) === selectedVersion);
-  }
+  nextItems = filterFeedbackByVersion(nextItems, options.versionFilter);
 
   nextItems.sort((a, b) => {
     const aClosed = isClosedStatus(a.status);
