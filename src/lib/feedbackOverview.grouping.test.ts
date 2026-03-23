@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FeedbackItem } from '@/types';
 import {
   buildFeedbackStateSections,
+  filterFeedbackByVersion,
   getDefaultFeedbackStateExpansion,
   sortRoadmapLaneItems,
 } from './feedbackOverview';
@@ -53,16 +54,41 @@ describe('feedback grouping helpers', () => {
     });
   });
 
-  it('sorts roadmap lane items by persisted roadmap position before sort-mode fallback', () => {
+  it('sorts roadmap lane items by persisted roadmap position and preserves stable fallback order', () => {
     const items = sortRoadmapLaneItems(
       [
-        makeItem({ id: 'late', vote_count: 100, roadmap_position: 4 }),
-        makeItem({ id: 'early', vote_count: 1, roadmap_position: 1 }),
-        makeItem({ id: 'unscheduled', vote_count: 50, roadmap_position: null }),
+        makeItem({ id: 'duplicate-a', vote_count: 1, roadmap_position: 2 }),
+        makeItem({ id: 'unpositioned-a', vote_count: 100, roadmap_position: null }),
+        makeItem({ id: 'first', vote_count: 0, roadmap_position: 1 }),
+        makeItem({ id: 'duplicate-b', vote_count: 200, roadmap_position: 2 }),
+        makeItem({ id: 'unpositioned-b', vote_count: 50, roadmap_position: null }),
       ],
       'popularity'
     );
 
-    expect(items.map((item) => item.id)).toEqual(['early', 'late', 'unscheduled']);
+    expect(items.map((item) => item.id)).toEqual([
+      'first',
+      'duplicate-a',
+      'duplicate-b',
+      'unpositioned-a',
+      'unpositioned-b',
+    ]);
+  });
+
+  it('filters roadmap items by normalized version while keeping no-version items selectable', () => {
+    expect(
+      filterFeedbackByVersion([
+        makeItem({ id: 'versioned-a', version: 'v1.2.0' }),
+        makeItem({ id: 'versioned-b', version: '1.3.0' }),
+        makeItem({ id: 'no-version', version: null }),
+      ], '1.2.0').map((item) => item.id)
+    ).toEqual(['versioned-a']);
+
+    expect(
+      filterFeedbackByVersion([
+        makeItem({ id: 'versioned-a', version: 'v1.2.0' }),
+        makeItem({ id: 'no-version', version: null }),
+      ], 'none').map((item) => item.id)
+    ).toEqual(['no-version']);
   });
 });

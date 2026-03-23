@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Lightbulb, Bug, Filter, RefreshCw, FileText } from 'lucide-react';
+import { Filter, RefreshCw, Plus } from 'lucide-react';
 import { Header } from '@/components/Header';
+import { AppPageHeader } from '@/components/AppPageHeader';
 import { FeedbackCard } from '@/components/FeedbackCard';
 import { FeedbackStateSections } from '@/components/feedback/FeedbackStateSections';
 import { CreateFeedbackDialog } from '@/components/CreateFeedbackDialog';
@@ -50,7 +51,7 @@ export default function AppFeedback() {
   const [versionFilter, setVersionFilter] = useState<OverviewVersionFilter>('all');
   const [groupByState, setGroupByState] = useState<boolean>(() => loadGroupedFeedbackEnabled(slug));
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createType, setCreateType] = useState<FeedbackType>('feature');
+  const [createType, setCreateType] = useState<FeedbackType | null>(null);
 
   const versionOptions = useMemo(() => getVersionOptions(feedback || []), [feedback]);
 
@@ -107,8 +108,8 @@ export default function AppFeedback() {
     });
   };
 
-  const openCreateDialog = (type: FeedbackType) => {
-    setCreateType(type);
+  const openCreateDialog = () => {
+    setCreateType(null);
     setCreateDialogOpen(true);
   };
 
@@ -198,65 +199,18 @@ export default function AppFeedback() {
       <main className="container py-8">
         <div className="max-w-4xl mx-auto">
           {/* Back link & Header */}
-          <div className="mb-8 animate-fade-in">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t('back')}
-            </Link>
-            
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div className="flex items-center gap-4">
-                {app.logo_url ? (
-                  <img 
-                    src={app.logo_url} 
-                    alt={app.name}
-                    className="w-16 h-16 rounded-xl object-cover"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center border border-primary/10">
-                    <span className="text-3xl font-bold text-primary">
-                      {app.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">
-                    {app.name}
-                  </h1>
-                  {app.description && (
-                    <p className="text-muted-foreground">{app.description}</p>
-                  )}
-                </div>
-              </div>
-              
-              {/* Buttons - stack on mobile, row on desktop */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button variant="outline" asChild className="w-full sm:w-auto">
-                  <Link to={`/app/${slug}/changelog`}>
-                    <FileText className="h-4 w-4 mr-2" />
-                    {t('changelog')}
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild className="w-full sm:w-auto">
-                  <Link to={`/app/${slug}/roadmap`}>
-                    <FileText className="h-4 w-4 mr-2" />
-                    {t('roadmap')}
-                  </Link>
-                </Button>
-                <Button variant="feature" onClick={() => openCreateDialog('feature')} className="w-full sm:w-auto">
-                  <Lightbulb className="h-4 w-4 mr-2" />
-                  {t('createFeature')}
-                </Button>
-                <Button variant="bug" onClick={() => openCreateDialog('bug')} className="w-full sm:w-auto">
-                  <Bug className="h-4 w-4 mr-2" />
-                  {t('createBug')}
-                </Button>
-              </div>
-            </div>
-          </div>
+          <AppPageHeader
+            backTo="/"
+            slug={slug!}
+            currentPage="feedback"
+            app={app}
+            action={
+              <Button onClick={openCreateDialog} className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                {t('newFeedback')}
+              </Button>
+            }
+          />
 
           {/* Welcoming message */}
           <p className="text-muted-foreground mb-6 animate-fade-in" style={{ animationDelay: '50ms' }}>

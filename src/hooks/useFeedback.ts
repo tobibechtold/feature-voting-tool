@@ -12,24 +12,52 @@ type RoadmapLaneItem = {
   roadmap_position?: number | null;
 };
 
-function getRoadmapPositionForInsertion(
+type RoadmapLaneUpdate = {
+  id: string;
+  status?: FeedbackStatus;
+  roadmap_position: number;
+};
+
+function buildDestinationLaneUpdates(
+  feedbackId: string,
+  destinationStatus: FeedbackStatus,
   destinationItems: RoadmapLaneItem[],
   destinationIndex: number
-): number {
+): RoadmapLaneUpdate[] {
   const orderedItems = [...destinationItems].sort(
     (a, b) => (a.roadmap_position ?? 0) - (b.roadmap_position ?? 0)
   );
   const boundedIndex = Math.min(Math.max(destinationIndex, 0), orderedItems.length);
-  const previousItem = orderedItems[boundedIndex - 1];
-  const nextItem = orderedItems[boundedIndex];
-  const previousPosition = previousItem?.roadmap_position ?? null;
-  const nextPosition = nextItem?.roadmap_position ?? null;
+  const nextItems = [...orderedItems];
 
-  if (previousPosition === null && nextPosition === null) return 1;
-  if (previousPosition === null) return nextPosition! - 1;
-  if (nextPosition === null) return previousPosition + 1;
-  if (nextPosition > previousPosition) return previousPosition + (nextPosition - previousPosition) / 2;
-  return previousPosition + 1;
+  nextItems.splice(boundedIndex, 0, {
+    id: feedbackId,
+    roadmap_position: null,
+  });
+
+  return nextItems.map((item, index) => ({
+    id: item.id,
+    roadmap_position: index + 1,
+    ...(item.id === feedbackId ? { status: destinationStatus } : {}),
+  }));
+}
+
+function applyRoadmapFeedbackUpdate(items: FeedbackItem[], updatedItems: FeedbackItem[]): FeedbackItem[] {
+  const updatesById = new Map(updatedItems.map((item) => [item.id, item]));
+
+  return items.map((item) => {
+    const updatedItem = updatesById.get(item.id);
+
+    if (!updatedItem) {
+      return item;
+    }
+
+    return {
+      ...item,
+      status: updatedItem.status,
+      roadmap_position: updatedItem.roadmap_position,
+    };
+  });
 }
 
 export function useFeedback(appId: string | undefined) {
@@ -420,22 +448,40 @@ export async function moveFeedbackRoadmapItem({
   destinationItems: RoadmapLaneItem[];
   destinationIndex: number;
 }) {
-  const roadmapPosition = getRoadmapPositionForInsertion(destinationItems, destinationIndex);
+  const destinationLaneUpdates = buildDestinationLaneUpdates(
+    feedbackId,
+    destinationStatus,
+    destinationItems,
+    destinationIndex
+  );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabaseClient as any)
-    .from('feedback')
-    .update({
-      status: destinationStatus,
-      roadmap_position: roadmapPosition,
-    } as never)
-    .eq('id', feedbackId)
-    .select()
-    .single();
+  const results = await Promise.all(
+    destinationLaneUpdates.map(async (laneUpdate) => {
+      const updateValues =
+        laneUpdate.id === feedbackId
+          ? {
+              status: destinationStatus,
+              roadmap_position: laneUpdate.roadmap_position,
+            }
+          : {
+              roadmap_position: laneUpdate.roadmap_position,
+            };
 
-  if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabaseClient as any)
+        .from('feedback')
+        .update(updateValues as never)
+        .eq('id', laneUpdate.id)
+        .select()
+        .single();
 
-  return data as FeedbackItem;
+      if (error) throw error;
+
+      return data as FeedbackItem;
+    })
+  );
+
+  return results;
 }
 
 export function useMoveFeedbackRoadmapItem() {
@@ -443,7 +489,24 @@ export function useMoveFeedbackRoadmapItem() {
 
   return useMutation({
     mutationFn: moveFeedbackRoadmapItem,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const feedbackQueries = queryClient.getQueriesData<FeedbackItem[]>({
+        queryKey: ['feedback'],
+      });
+
+      feedbackQueries.forEach(([queryKey, currentData]) => {
+        if (!Array.isArray(currentData)) return;
+        if (!currentData.some((item) => data.some((updatedItem) => updatedItem.id === item.id))) return;
+
+        const nextData = applyRoadmapFeedbackUpdate(currentData, data);
+        queryClient.setQueryData(queryKey, nextData);
+
+        const appId = queryKey[1];
+        if (typeof appId === 'string' && appId !== 'item') {
+          setCachedData(`feedback:${appId}`, nextData);
+        }
+      });
+
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
   });

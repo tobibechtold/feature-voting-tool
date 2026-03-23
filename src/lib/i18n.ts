@@ -123,6 +123,9 @@ export const translations = {
     // Changelog & Version
     changelog: 'Changelog',
     roadmap: 'Roadmap',
+    feedback: 'Feedback',
+    newFeedback: 'New Feedback',
+    chooseFeedbackType: 'Choose what you want to submit',
     version: 'Version',
     versionPlaceholder: 'e.g., 1.2.0',
     setVersion: 'Set Version',
@@ -272,6 +275,9 @@ export const translations = {
     // Changelog & Version
     changelog: 'Changelog',
     roadmap: 'Roadmap',
+    feedback: 'Feedback',
+    newFeedback: 'Neues Feedback',
+    chooseFeedbackType: 'Wähle aus, was du einreichen möchtest',
     version: 'Version',
     versionPlaceholder: 'z.B. 1.2.0',
     setVersion: 'Version setzen',

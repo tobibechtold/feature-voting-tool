@@ -87,24 +87,31 @@ export function buildFeedbackStateSections(items: FeedbackItem[]): FeedbackState
   }));
 }
 
-export function sortRoadmapLaneItems(items: FeedbackItem[], sortMode: OverviewSortMode): FeedbackItem[] {
-  return [...items].sort((a, b) => {
-    const aPositioned = a.roadmap_position !== null && a.roadmap_position !== undefined;
-    const bPositioned = b.roadmap_position !== null && b.roadmap_position !== undefined;
+export function sortRoadmapLaneItems(items: FeedbackItem[], _sortMode?: OverviewSortMode): FeedbackItem[] {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+    }))
+    .sort((a, b) => {
+      const aPositioned = a.item.roadmap_position !== null && a.item.roadmap_position !== undefined;
+      const bPositioned = b.item.roadmap_position !== null && b.item.roadmap_position !== undefined;
 
-    if (aPositioned && bPositioned) {
-      if (a.roadmap_position !== b.roadmap_position) {
-        return (a.roadmap_position as number) - (b.roadmap_position as number);
+      if (aPositioned && bPositioned) {
+        if (a.item.roadmap_position !== b.item.roadmap_position) {
+          return (a.item.roadmap_position as number) - (b.item.roadmap_position as number);
+        }
+
+        return a.index - b.index;
       }
-    } else if (aPositioned !== bPositioned) {
-      return aPositioned ? -1 : 1;
-    }
 
-    const modeResult = compareBySortMode(a, b, sortMode);
-    if (modeResult !== 0) return modeResult;
+      if (aPositioned !== bPositioned) {
+        return aPositioned ? -1 : 1;
+      }
 
-    return b.vote_count - a.vote_count;
-  });
+      return a.index - b.index;
+    })
+    .map(({ item }) => item);
 }
 
 export function getVersionOptions(items: FeedbackItem[]): string[] {
@@ -114,6 +121,22 @@ export function getVersionOptions(items: FeedbackItem[]): string[] {
     if (version) unique.add(version);
   }
   return Array.from(unique).sort(compareVersionsDesc);
+}
+
+export function filterFeedbackByVersion(
+  items: FeedbackItem[],
+  versionFilter: OverviewVersionFilter
+): FeedbackItem[] {
+  if (versionFilter === 'all') {
+    return items;
+  }
+
+  if (versionFilter === 'none') {
+    return items.filter((item) => !normalizeVersion(item.version));
+  }
+
+  const selectedVersion = normalizeVersion(versionFilter);
+  return items.filter((item) => normalizeVersion(item.version) === selectedVersion);
 }
 
 export function filterAndSortFeedback(items: FeedbackItem[], options: FilterAndSortOptions): FeedbackItem[] {
@@ -127,12 +150,7 @@ export function filterAndSortFeedback(items: FeedbackItem[], options: FilterAndS
     nextItems = nextItems.filter((item) => options.filterStatuses.includes(item.status));
   }
 
-  if (options.versionFilter === 'none') {
-    nextItems = nextItems.filter((item) => !normalizeVersion(item.version));
-  } else if (options.versionFilter !== 'all') {
-    const selectedVersion = normalizeVersion(options.versionFilter);
-    nextItems = nextItems.filter((item) => normalizeVersion(item.version) === selectedVersion);
-  }
+  nextItems = filterFeedbackByVersion(nextItems, options.versionFilter);
 
   nextItems.sort((a, b) => {
     const aClosed = isClosedStatus(a.status);

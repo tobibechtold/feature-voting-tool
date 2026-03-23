@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { Header } from '@/components/Header';
+import { AppPageHeader } from '@/components/AppPageHeader';
 import { RoadmapBoard } from '@/components/roadmap/RoadmapBoard';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OfflineState } from '@/components/OfflineState';
 import { QueryErrorState } from '@/components/QueryErrorState';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useApp as useAppData } from '@/hooks/useApps';
 import { useAuth } from '@/hooks/useAuth';
-import { useFeedback, useMoveFeedbackRoadmapItem } from '@/hooks/useFeedback';
-import { type OverviewSortMode } from '@/lib/feedbackOverview';
-import { loadRoadmapSortMode, saveRoadmapSortMode } from '@/lib/roadmapPreferences';
+import { useFeedback, useMoveFeedbackRoadmapItem, useVote, useVotedItems } from '@/hooks/useFeedback';
+import { filterFeedbackByVersion, getVersionOptions, type OverviewVersionFilter } from '@/lib/feedbackOverview';
 
 function getStatusTranslationKey(status: 'open' | 'planned' | 'progress' | 'completed' | 'wont_do') {
   switch (status) {
@@ -34,6 +34,8 @@ export default function Roadmap() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const moveRoadmapItem = useMoveFeedbackRoadmapItem();
+  const vote = useVote();
+  const { data: votedItems } = useVotedItems();
 
   const {
     data: app,
@@ -50,19 +52,19 @@ export default function Roadmap() {
     fetchStatus: feedbackFetchStatus,
     refetch: refetchFeedback,
   } = useFeedback(app?.id);
-
-  const [sortMode, setSortMode] = useState<OverviewSortMode>(() => loadRoadmapSortMode(slug));
-
-  useEffect(() => {
-    setSortMode(loadRoadmapSortMode(slug));
-  }, [slug]);
-
-  useEffect(() => {
-    saveRoadmapSortMode(slug, sortMode);
-  }, [slug, sortMode]);
+  const [versionFilter, setVersionFilter] = useState<OverviewVersionFilter>('all');
 
   const isAppPaused = appFetchStatus === 'paused';
   const isFeedbackPaused = feedbackFetchStatus === 'paused';
+  const versionOptions = useMemo(() => getVersionOptions(feedback || []), [feedback]);
+  const filteredFeedback = useMemo(
+    () => filterFeedbackByVersion(feedback || [], versionFilter),
+    [feedback, versionFilter]
+  );
+  const handleVote = (id: string) => {
+    if (votedItems?.has(id)) return;
+    vote.mutate(id);
+  };
 
   if (appLoading && !app) {
     return (
@@ -113,37 +115,32 @@ export default function Roadmap() {
       <Header />
 
       <main className="container py-8">
-        <div className="mb-8 space-y-4 animate-fade-in">
-          <Link
-            to={`/app/${slug}`}
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {t('back')}
-          </Link>
-
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                {t('roadmap')} - {app.name}
-              </h1>
-              <p className="text-muted-foreground">
-                {isAdmin ? 'Drag items between lanes or reorder them within a lane.' : 'Public roadmap view.'}
-              </p>
-            </div>
-
-            <div className="w-full sm:w-[180px]">
-              <Select value={sortMode} onValueChange={(value) => setSortMode(value as OverviewSortMode)}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('sortBy')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="popularity">{t('sortPopularity')}</SelectItem>
-                  <SelectItem value="date">{t('sortDate')}</SelectItem>
-                  <SelectItem value="version">{t('sortVersion')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="space-y-4">
+          <AppPageHeader
+            backTo="/"
+            slug={slug!}
+            currentPage="roadmap"
+            app={app}
+            subtitle={isAdmin ? 'Drag items between lanes or reorder them within a lane.' : 'Public roadmap view.'}
+          />
+          <div className="w-full sm:w-[220px]">
+            <Label htmlFor="roadmap-version-filter" className="sr-only">
+              {t('filterVersion')}
+            </Label>
+            <Select value={versionFilter} onValueChange={(value) => setVersionFilter(value as OverviewVersionFilter)}>
+              <SelectTrigger id="roadmap-version-filter" aria-label={t('filterVersion')}>
+                <SelectValue placeholder={t('filterVersion')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('allVersions')}</SelectItem>
+                {versionOptions.map((version) => (
+                  <SelectItem key={version} value={version}>
+                    v{version}
+                  </SelectItem>
+                ))}
+                <SelectItem value="none">{t('noVersion')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -159,10 +156,11 @@ export default function Roadmap() {
           </div>
         ) : (
           <RoadmapBoard
-            items={feedback || []}
+            items={filteredFeedback}
             appSlug={slug!}
-            sortMode={sortMode}
             isAdmin={isAdmin}
+            votedItems={votedItems || new Set()}
+            onVote={handleVote}
             getStatusLabel={(status) => t(getStatusTranslationKey(status))}
             onMoveItem={moveRoadmapItem.mutateAsync}
           />

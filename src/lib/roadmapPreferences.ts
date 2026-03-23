@@ -1,11 +1,7 @@
-import type { OverviewSortMode } from './feedbackOverview';
 import { getDefaultFeedbackStateExpansion, type FeedbackStateExpansion } from './feedbackOverview';
 
 const GROUPED_FEEDBACK_ENABLED_PREFIX = 'grouped-feedback-enabled:';
 const GROUPED_FEEDBACK_EXPANSION_PREFIX = 'grouped-feedback-expansion:';
-const ROADMAP_SORT_MODE_PREFIX = 'roadmap-sort-mode:';
-const DEFAULT_ROADMAP_SORT_MODE: OverviewSortMode = 'popularity';
-const SORT_MODES: OverviewSortMode[] = ['popularity', 'date', 'version'];
 
 function getScopedStorageKey(prefix: string, slug?: string): string | null {
   if (!slug) return null;
@@ -53,25 +49,4 @@ export function saveGroupedFeedbackExpansion(
   if (!key) return;
 
   localStorage.setItem(key, JSON.stringify(expansion));
-}
-
-export function loadRoadmapSortMode(slug?: string): OverviewSortMode {
-  const key = getScopedStorageKey(ROADMAP_SORT_MODE_PREFIX, slug);
-  if (!key) return DEFAULT_ROADMAP_SORT_MODE;
-
-  const stored = localStorage.getItem(key);
-  if (!stored) return DEFAULT_ROADMAP_SORT_MODE;
-
-  if (SORT_MODES.includes(stored as OverviewSortMode)) {
-    return stored as OverviewSortMode;
-  }
-
-  return DEFAULT_ROADMAP_SORT_MODE;
-}
-
-export function saveRoadmapSortMode(slug: string | undefined, sortMode: OverviewSortMode): void {
-  const key = getScopedStorageKey(ROADMAP_SORT_MODE_PREFIX, slug);
-  if (!key) return;
-
-  localStorage.setItem(key, sortMode);
 }

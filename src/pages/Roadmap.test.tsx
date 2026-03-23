@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -21,6 +21,7 @@ vi.mock('@/hooks/useTranslation', () => ({
         back: 'Back',
         changelog: 'Changelog',
         roadmap: 'Roadmap',
+        feedback: 'Feedback',
         all: 'All',
         features: 'Features',
         bugs: 'Bugs',
@@ -45,6 +46,12 @@ vi.mock('@/hooks/useTranslation', () => ({
 
       return labels[key] ?? key;
     },
+  }),
+}));
+
+vi.mock('@/hooks/useComments', () => ({
+  useCommentCount: () => ({
+    data: 3,
   }),
 }));
 
@@ -88,7 +95,7 @@ vi.mock('@/hooks/useFeedback', () => ({
         status: 'open',
         vote_count: 2,
         created_at: '2026-03-01T00:00:00.000Z',
-        version: null,
+        version: '1.2.0',
         platform: null,
         roadmap_position: 1,
       },
@@ -119,6 +126,9 @@ vi.mock('@/hooks/useFeedback', () => ({
   useVote: () => ({
     mutate: vi.fn(),
   }),
+  useVotedItems: () => ({
+    data: new Set<string>(),
+  }),
   useCreateFeedback: () => ({
     mutateAsync: vi.fn(),
   }),
@@ -128,7 +138,7 @@ import AppFeedback from './AppFeedback';
 import Roadmap from './Roadmap';
 
 describe('Roadmap page', () => {
-  it('renders the roadmap route with public status lanes', () => {
+  it('renders the roadmap route with shared app navigation, a version filter, and no roadmap sort controls', () => {
     render(
       <MemoryRouter initialEntries={['/app/roadmap-tool/roadmap']}>
         <Routes>
@@ -137,11 +147,20 @@ describe('Roadmap page', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /roadmap - roadmap tool/i })).toBeInTheDocument();
-    expect(screen.getByText('Open')).toBeInTheDocument();
-    expect(screen.getByText('Planned')).toBeInTheDocument();
-    expect(screen.getByText('Open item')).toBeInTheDocument();
-    expect(screen.getByText('Planned item')).toBeInTheDocument();
+    const openLane = screen.getByTestId('roadmap-lane-open');
+    const plannedLane = screen.getByTestId('roadmap-lane-planned');
+    const appNavigation = screen.getByRole('navigation', { name: /app navigation/i });
+
+    expect(screen.getByRole('heading', { name: /roadmap tool/i })).toBeInTheDocument();
+    expect(within(appNavigation).getByRole('link', { name: /^feedback$/i })).toHaveAttribute('href', '/app/roadmap-tool');
+    expect(within(appNavigation).getByRole('link', { name: /^roadmap$/i })).toHaveAttribute('aria-current', 'page');
+    expect(within(appNavigation).getByRole('link', { name: /^changelog$/i })).toHaveAttribute('href', '/app/roadmap-tool/changelog');
+    expect(within(openLane).getByRole('heading', { name: /open/i })).toBeInTheDocument();
+    expect(within(plannedLane).getByRole('heading', { name: /planned/i })).toBeInTheDocument();
+    expect(within(openLane).getByText('Open item')).toBeInTheDocument();
+    expect(within(plannedLane).getByText('Planned item')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /version filter/i })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /sort by/i })).toBeNull();
   });
 
   it('shows a roadmap link from the app feedback page', () => {

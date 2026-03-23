@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   loadGroupedFeedbackEnabled,
   loadGroupedFeedbackExpansion,
-  loadRoadmapSortMode,
   saveGroupedFeedbackEnabled,
   saveGroupedFeedbackExpansion,
-  saveRoadmapSortMode,
 } from './roadmapPreferences';
 
 describe('roadmap preferences', () => {
@@ -36,12 +34,5 @@ describe('roadmap preferences', () => {
       completed: false,
       wont_do: false,
     });
-  });
-
-  it('persists roadmap sort mode separately from the list sort mode', () => {
-    saveRoadmapSortMode('roadmap-tool', 'date');
-
-    expect(loadRoadmapSortMode('roadmap-tool')).toBe('date');
-    expect(loadRoadmapSortMode('another-tool')).toBe('popularity');
   });
 });

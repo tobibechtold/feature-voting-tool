@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Lightbulb, Bug, Calendar, Pencil, Check, X, Trash2 } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { Calendar, Pencil, Check, X, Trash2, Lightbulb, Bug } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Header } from '@/components/Header';
+import { AppPageHeader } from '@/components/AppPageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -121,34 +122,7 @@ export default function Changelog() {
 
       <main className="container py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-8 animate-fade-in">
-            <Link
-              to={`/app/${slug}`}
-              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t('back')}
-            </Link>
-
-            <div className="flex items-center gap-4">
-              {app.logo_url ? (
-                <img
-                  src={app.logo_url}
-                  alt={app.name}
-                  className="w-12 h-12 rounded-xl object-cover"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center border border-primary/10">
-                  <span className="text-2xl font-bold text-primary">{app.name.charAt(0)}</span>
-                </div>
-              )}
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">
-                  {t('changelog')} - {app.name}
-                </h1>
-              </div>
-            </div>
-          </div>
+          <AppPageHeader backTo="/" slug={slug!} currentPage="changelog" app={app} />
 
           <div className="space-y-6">
             {isChangelogPaused ? (

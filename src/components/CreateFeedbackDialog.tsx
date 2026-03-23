@@ -30,7 +30,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 interface CreateFeedbackDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  type: FeedbackType;
+  type: FeedbackType | null;
   platforms: string[];
   onSubmit: (data: { 
     title: string; 
@@ -57,6 +57,7 @@ export function CreateFeedbackDialog({
   const [email, setEmail] = useState('');
   const [notifyOnUpdates, setNotifyOnUpdates] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedType, setSelectedType] = useState<FeedbackType | null>(type);
   const [platform, setPlatform] = useState<string>('');
   const [screenshots, setScreenshots] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -101,8 +102,9 @@ export function CreateFeedbackDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedType) return;
     if (!title.trim() || !description.trim()) return;
-    if (type === 'bug' && !platform) return;
+    if (selectedType === 'bug' && !platform) return;
     
     if (email && !isValidEmail(email)) {
       toast({
@@ -118,8 +120,8 @@ export function CreateFeedbackDialog({
       await onSubmit({ 
         title: title.trim(), 
         description: description.trim(), 
-        type,
-        platform: type === 'bug' ? platform : undefined,
+        type: selectedType,
+        platform: selectedType === 'bug' ? platform : undefined,
         email: email.trim() || undefined,
         notifyOnUpdates: email.trim() ? notifyOnUpdates : false,
         screenshots: screenshots.length > 0 ? screenshots : undefined,
@@ -140,10 +142,11 @@ export function CreateFeedbackDialog({
     }
   };
 
-  const isFeature = type === 'feature';
+  const isFeature = selectedType === 'feature';
 
   useEffect(() => {
     if (!open) return;
+    setSelectedType(type);
     if (type === 'bug') {
       setPlatform((prev) => prev || platforms[0] || '');
       return;
@@ -169,18 +172,37 @@ export function CreateFeedbackDialog({
             </div>
             <div>
               <DialogTitle>
-                {isFeature ? t('createFeature') : t('createBug')}
+                {selectedType ? (isFeature ? t('createFeature') : t('createBug')) : t('newFeedback')}
               </DialogTitle>
               <DialogDescription>
-                {isFeature
+                {selectedType
+                  ? (isFeature
                   ? 'Share your idea to improve this app'
-                  : 'Report an issue you encountered'}
+                  : 'Report an issue you encountered')
+                  : t('chooseFeedbackType')}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="grid w-full grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={selectedType === 'feature' ? 'default' : 'outline'}
+              onClick={() => setSelectedType('feature')}
+            >
+              {t('feature')}
+            </Button>
+            <Button
+              type="button"
+              variant={selectedType === 'bug' ? 'default' : 'outline'}
+              onClick={() => setSelectedType('bug')}
+            >
+              {t('bug')}
+            </Button>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="title">{t('title')}</Label>
             <Input
@@ -204,7 +226,7 @@ export function CreateFeedbackDialog({
             />
           </div>
 
-          {!isFeature && (
+          {selectedType === 'bug' && (
             <div className="space-y-2">
               <Label>{t('platform')}</Label>
               <Select value={platform} onValueChange={setPlatform}>
@@ -306,7 +328,14 @@ export function CreateFeedbackDialog({
             <Button
               type="submit"
               variant={isFeature ? 'feature' : 'bug'}
-              disabled={isSubmitting || !title.trim() || !description.trim() || !isValidEmail(email) || (!isFeature && !platform)}
+              disabled={
+                !selectedType ||
+                isSubmitting ||
+                !title.trim() ||
+                !description.trim() ||
+                !isValidEmail(email) ||
+                (selectedType === 'bug' && !platform)
+              }
             >
               {t('submit')}
             </Button>
