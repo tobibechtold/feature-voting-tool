@@ -48,6 +48,21 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 describe('CreateFeedbackDialog', () => {
+  it('renders the dialog inside a scrollable viewport-constrained container', () => {
+    render(
+      <CreateFeedbackDialog
+        open
+        onOpenChange={vi.fn()}
+        type="feature"
+        platforms={['ios', 'android']}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('dialog')).toHaveClass('max-h-[calc(100dvh-2rem)]');
+    expect(screen.getByRole('dialog')).toHaveClass('overflow-y-auto');
+  });
+
   it('supports choosing feature or bug inside the dialog when no initial type is provided', async () => {
     render(
       <CreateFeedbackDialog
