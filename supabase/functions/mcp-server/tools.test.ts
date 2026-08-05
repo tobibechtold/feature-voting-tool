@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { listApps, listFeedback } from './tools';
+import { getVersionPlan, listApps, listFeedback } from './tools';
 
 type QueryResult = { data: unknown; error: Error | null };
 
@@ -85,5 +85,75 @@ describe('listFeedback', () => {
       expect(outcome.error).toContain("No app with slug 'nope'");
       expect(outcome.error).toContain('list_apps');
     }
+  });
+});
+
+describe('getVersionPlan', () => {
+  const GROUP_ROW = {
+    id: 'rg-1',
+    semver: '1.3.0',
+    title: 'Summer release',
+    notes: 'Focus on stability',
+    created_at: '2026-07-01T00:00:00Z',
+    release_group_platforms: [
+      { platform: 'web', version: '1.3.0', status: 'planned', released_at: null },
+    ],
+    feedback_release_targets: [
+      {
+        platform: 'web',
+        feedback: { id: 'f-1', type: 'bug', title: 'Crash', description: 'It crashes', status: 'planned', vote_count: 3, platform: 'web', version: '1.3.0', created_at: '2026-06-01T00:00:00Z' },
+      },
+      {
+        platform: 'ios',
+        feedback: { id: 'f-1', type: 'bug', title: 'Crash', description: 'It crashes', status: 'planned', vote_count: 3, platform: 'web', version: '1.3.0', created_at: '2026-06-01T00:00:00Z' },
+      },
+    ],
+  };
+
+  it('returns release info with feedback deduped across target platforms', async () => {
+    const client = createClient({
+      apps: [createBuilder({ data: APP, error: null })],
+      release_groups: [createBuilder({ data: GROUP_ROW, error: null })],
+    });
+
+    const outcome = await getVersionPlan(client, 'my-app', '1.3.0');
+
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      const data = outcome.data as any;
+      expect(data.release).toEqual({ semver: '1.3.0', title: 'Summer release', notes: 'Focus on stability', created_at: '2026-07-01T00:00:00Z' });
+      expect(data.platforms).toHaveLength(1);
+      expect(data.items).toHaveLength(1);
+      expect(data.items[0].id).toBe('f-1');
+      expect(data.items[0].target_platforms).toEqual(['web', 'ios']);
+    }
+  });
+
+  it('lists available versions when the version is unknown', async () => {
+    const client = createClient({
+      apps: [createBuilder({ data: APP, error: null })],
+      release_groups: [
+        createBuilder({ data: null, error: null }),
+        createBuilder({ data: [{ semver: '1.2.0' }, { semver: '1.1.0' }], error: null }),
+      ],
+    });
+
+    const outcome = await getVersionPlan(client, 'my-app', '9.9.9');
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.error).toContain("No release '9.9.9'");
+      expect(outcome.error).toContain('1.2.0');
+      expect(outcome.error).toContain('1.1.0');
+    }
+  });
+
+  it('returns a helpful error for an unknown app slug', async () => {
+    const client = createClient({ apps: [createBuilder({ data: null, error: null })] });
+
+    const outcome = await getVersionPlan(client, 'nope', '1.0.0');
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error).toContain("No app with slug 'nope'");
   });
 });

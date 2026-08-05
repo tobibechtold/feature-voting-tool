@@ -62,3 +62,69 @@ export async function listFeedback(
   throwIfError(error);
   return { ok: true, data: { app, feedback: data ?? [] } };
 }
+
+export async function getVersionPlan(
+  client: SupabaseLike,
+  appSlug: string,
+  version: string
+): Promise<ToolOutcome> {
+  const { app } = await findAppBySlug(client, appSlug);
+  if (!app) return { ok: false, error: UNKNOWN_APP(appSlug) };
+
+  const { data: group, error } = await client
+    .from('release_groups')
+    .select(
+      `semver, title, notes, created_at,
+       release_group_platforms ( platform, version, status, released_at ),
+       feedback_release_targets ( platform, feedback ( ${FEEDBACK_COLUMNS} ) )`
+    )
+    .eq('app_id', app.id)
+    .eq('semver', version)
+    .maybeSingle();
+  throwIfError(error);
+
+  if (!group) {
+    const { data: available, error: availableError } = await client
+      .from('release_groups')
+      .select('semver')
+      .eq('app_id', app.id)
+      .order('created_at', { ascending: false });
+    throwIfError(availableError);
+    const semvers = (available ?? []).map((row: { semver: string }) => row.semver);
+    const hint = semvers.length > 0
+      ? `Available versions: ${semvers.join(', ')}.`
+      : 'This app has no releases yet.';
+    return {
+      ok: false,
+      error: `No release '${version}' for app '${appSlug}'. ${hint}`,
+    };
+  }
+
+  // One feedback item can target several platforms; dedupe by feedback id
+  // and collect the platforms instead of repeating the item.
+  const itemsById = new Map<string, Record<string, unknown> & { target_platforms: string[] }>();
+  for (const target of group.feedback_release_targets ?? []) {
+    if (!target.feedback) continue;
+    const existing = itemsById.get(target.feedback.id);
+    if (existing) {
+      existing.target_platforms.push(target.platform);
+    } else {
+      itemsById.set(target.feedback.id, { ...target.feedback, target_platforms: [target.platform] });
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      app,
+      release: {
+        semver: group.semver,
+        title: group.title,
+        notes: group.notes,
+        created_at: group.created_at,
+      },
+      platforms: group.release_group_platforms ?? [],
+      items: Array.from(itemsById.values()),
+    },
+  };
+}
