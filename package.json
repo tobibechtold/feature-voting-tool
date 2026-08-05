@@ -15,7 +15,7 @@
     "supabase:link": "supabase link",
     "supabase:db:pull": "supabase db pull",
     "supabase:db:push": "supabase db push",
-    "supabase:functions:deploy": "supabase functions deploy verify-comment && supabase functions deploy send-notification"
+    "supabase:functions:deploy": "supabase functions deploy verify-comment && supabase functions deploy send-notification && supabase functions deploy mcp-server"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
