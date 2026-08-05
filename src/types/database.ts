@@ -194,6 +194,35 @@ export type Database = {
           created_at?: string
         }
       }
+      api_tokens: {
+        Row: {
+          id: string
+          name: string
+          token_hash: string
+          created_by: string
+          created_at: string
+          last_used_at: string | null
+          revoked_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          token_hash: string
+          created_by: string
+          created_at?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          token_hash?: string
+          created_by?: string
+          created_at?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+        }
+      }
     }
     Functions: {
       has_role: {
@@ -221,6 +250,12 @@ export type Database = {
           p_app_id: string
         }
         Returns: void
+      }
+      create_api_token: {
+        Args: {
+          p_name: string
+        }
+        Returns: string
       }
     }
     Enums: {
