@@ -18,7 +18,7 @@ Claude Code (run inside any project that should use the data):
 
 claude.ai / cloud agents: add a custom connector with the same URL and header.
 
-## Tools (all read-only)
+## Tools
 
 ### list_apps
 No arguments. Returns all apps: `id`, `name`, `slug`, `description`,
@@ -46,8 +46,16 @@ bugs that are already fixed in the codebase.
 Arguments: `id` (uuid). Returns one item plus its comments
 (`content`, `is_admin`, `created_at`) and attachment image URLs.
 
+### update_status
+Arguments: `id` (uuid), `status`
+(`open|planned|progress|completed|wont_do`).
+Changes the item's status — e.g. mark a bug `completed` after fixing it, or
+move an implemented feature out of `progress`. If the submitter opted into
+notifications, the same status-change email is sent as when an admin changes
+the status in the UI; the response includes `notified` accordingly.
+
 ## Notes
 
 - Responses are JSON in a text content block.
 - Submitter and commenter email addresses are never included.
-- Tokens grant read-only access; write tools may come later.
+- Tokens grant read access and status-update write access.
