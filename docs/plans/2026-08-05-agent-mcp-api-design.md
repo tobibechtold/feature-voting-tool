@@ -12,7 +12,8 @@ Access is read-only for now, authenticated with admin-generated API tokens, and 
 ## Current Context
 
 - Frontend: React/Vite SPA with an admin area at `src/pages/Admin.tsx` and auth via `src/hooks/useAuth.ts`.
-- Backend: Supabase Postgres with RLS. `feedback` is publicly readable (`Anyone can view feedback`), as are `comments`, `feedback_attachments`, `apps`, and `version_releases` data used by public pages.
+- Backend: Supabase Postgres with RLS. `feedback` is publicly readable (`Anyone can view feedback`), as are `comments`, `feedback_attachments`, `apps`, and the release tables (`release_groups`, `release_group_platforms`, `feedback_release_targets`) used by public pages.
+- Releases are modeled as release groups: `release_groups` (app + semver + title/notes) with per-platform rows in `release_group_platforms` (platform, version, status `planned`/`released`, `released_at`) and feedback assignments in `feedback_release_targets` (feedback + release group + platform). `feedback.version` mirrors the assigned semver.
 - Edge functions `send-notification` and `verify-comment` already exist under `supabase/functions/` and deploy via `supabase functions deploy`.
 - There is no API surface designed for agents and no API token concept.
 
@@ -63,10 +64,12 @@ Tools (all read-only):
 
 | tool | input | returns |
 | --- | --- | --- |
-| `list_apps` | none | all apps: id, name, slug, platforms |
-| `get_version_plan` | `app` (slug), `version` (text) | release state from `version_releases` (planned/released, `released_at`) plus every feedback item with that `version`: id, type, title, full description, status, vote count, created_at |
+| `list_apps` | none | all apps: id, name, slug, description, platforms |
+| `get_version_plan` | `app` (slug), `version` (semver text) | the matching `release_groups` row (semver, title, notes), its per-platform state from `release_group_platforms` (platform, version, status, released_at), and every feedback item assigned via `feedback_release_targets`: id, type, title, full description, status, vote count, platform, version, created_at, plus the target platforms per item |
 | `list_feedback` | `app` (slug), optional `status`, optional `type` | matching feedback items with the same fields as above, newest first |
-| `get_feedback` | `id` (uuid) | one feedback item plus its comments (author name, content, created_at) and attachment image URLs |
+| `get_feedback` | `id` (uuid) | one feedback item plus its comments (content, is_admin, created_at) and attachment image URLs |
+
+Privacy: tool outputs never include `feedback.submitter_email`, `feedback.notify_on_updates`, `comments.commenter_email`, or `comments.notify_on_reply`, even though those columns are technically publicly readable.
 
 Error behavior: unknown app slug, unknown version, or unknown feedback id return an MCP tool error with an explicit message (e.g. "No app with slug 'foo'. Use list_apps to see valid slugs."), never a silently empty result. Invalid `status`/`type` values are rejected by input schema enums matching the DB check constraints.
 
@@ -95,7 +98,7 @@ Data logic lives in a new hook `src/hooks/useApiTokens.ts` (TanStack Query: list
 
 ## Testing
 
-- Pure modules for the edge function (tool input validation, response shaping, token hashing) are covered by Vitest tests, mirroring how existing hook logic is tested.
+- Pure modules for the edge function (tool input validation, response shaping, token hashing) are covered by Vitest tests, mirroring how existing hook logic is tested. The Vitest `include` pattern is extended to cover `supabase/functions/**/*.test.ts`; pure modules use no Deno-specific APIs so they run under Node.
 - `src/hooks/useApiTokens.ts` gets hook tests following the existing `useReleases.*.test.ts` patterns; the create-token dialog gets a component test asserting the token is displayed once with the warning.
 - The migration's admin-only enforcement (RLS + RPC exception for non-admins) is verified by inspection against existing policy patterns; no automated Postgres tests exist in this repo today and none are introduced.
 - Manual verification: deploy the function, create a token in the admin UI, connect Claude Code, and run each tool against real data.
