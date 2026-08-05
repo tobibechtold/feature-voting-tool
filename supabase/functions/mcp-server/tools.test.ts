@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getVersionPlan, listApps, listFeedback } from './tools';
+import { getFeedback, getVersionPlan, listApps, listFeedback } from './tools';
 
 type QueryResult = { data: unknown; error: Error | null };
 
 // Chainable mock: every builder method returns the builder; the builder is
 // awaitable and resolves to `result`. Mirrors the postgrest-js API shape.
 function createBuilder(result: QueryResult) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const builder: any = {
     calls: [] as Array<[string, unknown[]]>,
     then(resolve: (value: QueryResult) => unknown) {
@@ -120,6 +121,7 @@ describe('getVersionPlan', () => {
 
     expect(outcome.ok).toBe(true);
     if (outcome.ok) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = outcome.data as any;
       expect(data.release).toEqual({ semver: '1.3.0', title: 'Summer release', notes: 'Focus on stability', created_at: '2026-07-01T00:00:00Z' });
       expect(data.platforms).toHaveLength(1);
@@ -155,5 +157,39 @@ describe('getVersionPlan', () => {
 
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.error).toContain("No app with slug 'nope'");
+  });
+});
+
+describe('getFeedback', () => {
+  const ITEM = { id: 'f-1', type: 'feature', title: 'Dark mode', description: 'Please add dark mode', status: 'planned', vote_count: 12, platform: null, version: '1.3.0', created_at: '2026-05-01T00:00:00Z' };
+
+  it('returns the item with comments and attachment urls', async () => {
+    const comments = [{ id: 'c-1', content: 'Working on it', is_admin: true, created_at: '2026-05-02T00:00:00Z' }];
+    const commentsBuilder = createBuilder({ data: comments, error: null });
+    const client = createClient({
+      feedback: [createBuilder({ data: ITEM, error: null })],
+      comments: [commentsBuilder],
+      feedback_attachments: [createBuilder({ data: [{ image_url: 'https://x/img.png' }], error: null })],
+    });
+
+    const outcome = await getFeedback(client, 'f-1');
+
+    expect(outcome).toEqual({
+      ok: true,
+      data: { feedback: ITEM, comments, attachments: ['https://x/img.png'] },
+    });
+    // no commenter PII selected
+    const selectArg = String(commentsBuilder.calls.find(([m]: [string, unknown[]]) => m === 'select')?.[1][0]);
+    expect(selectArg).not.toContain('commenter_email');
+    expect(selectArg).not.toContain('notify_on_reply');
+  });
+
+  it('returns a helpful error for an unknown id', async () => {
+    const client = createClient({ feedback: [createBuilder({ data: null, error: null })] });
+
+    const outcome = await getFeedback(client, 'missing-id');
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error).toContain("No feedback item with id 'missing-id'");
   });
 });

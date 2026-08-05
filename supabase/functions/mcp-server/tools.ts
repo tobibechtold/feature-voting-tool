@@ -1,6 +1,7 @@
 // Pure tool handlers for the mcp-server edge function. No Deno APIs here:
 // this module is unit-tested under Node via Vitest.
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type SupabaseLike = { from(table: string): any };
 
 export type ToolOutcome =
@@ -125,6 +126,46 @@ export async function getVersionPlan(
       },
       platforms: group.release_group_platforms ?? [],
       items: Array.from(itemsById.values()),
+    },
+  };
+}
+
+export async function getFeedback(
+  client: SupabaseLike,
+  feedbackId: string
+): Promise<ToolOutcome> {
+  const { data: feedback, error } = await client
+    .from('feedback')
+    .select(FEEDBACK_COLUMNS)
+    .eq('id', feedbackId)
+    .maybeSingle();
+  throwIfError(error);
+  if (!feedback) {
+    return {
+      ok: false,
+      error: `No feedback item with id '${feedbackId}'. Use list_feedback to find valid ids.`,
+    };
+  }
+
+  const { data: comments, error: commentsError } = await client
+    .from('comments')
+    .select('id, content, is_admin, created_at')
+    .eq('feedback_id', feedbackId)
+    .order('created_at', { ascending: true });
+  throwIfError(commentsError);
+
+  const { data: attachments, error: attachmentsError } = await client
+    .from('feedback_attachments')
+    .select('image_url')
+    .eq('feedback_id', feedbackId);
+  throwIfError(attachmentsError);
+
+  return {
+    ok: true,
+    data: {
+      feedback,
+      comments: comments ?? [],
+      attachments: (attachments ?? []).map((row: { image_url: string }) => row.image_url),
     },
   };
 }
