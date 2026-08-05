@@ -93,7 +93,7 @@ Data logic lives in a new hook `src/hooks/useApiTokens.ts` (TanStack Query: list
 
 ## Future Work (explicitly out of scope now)
 
-- Write tools (`update_status`, close-duplicate, commenting) behind the same tokens, gated by a `scopes` column added to `api_tokens` at that point.
+- Write tools: `update_status` landed later without token scoping (all tokens may write) — see `2026-08-05-agent-mcp-update-status-design.md`. Further write tools (close-duplicate, commenting) and a `scopes` column remain options.
 - Rate limiting per token.
 
 ## Testing
