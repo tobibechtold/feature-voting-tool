@@ -34,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ApiTokensCard } from '@/components/ApiTokensCard';
 import { OfflineState } from '@/components/OfflineState';
 import { QueryErrorState } from '@/components/QueryErrorState';
 import { useApp } from '@/contexts/AppContext';
@@ -358,6 +359,8 @@ export default function Admin() {
               )}
             </CardContent>
           </Card>
+
+          <ApiTokensCard />
         </div>
       </main>
 

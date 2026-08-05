@@ -152,6 +152,23 @@ export const translations = {
     removeScreenshot: 'Remove',
     maxFiles: 'Max 5 images, 5MB each',
     screenshotDeleted: 'Screenshot deleted',
+
+    // API tokens (admin)
+    apiTokens: 'API Tokens',
+    apiTokensDescription: 'Tokens let AI agents read feedback data through the MCP API.',
+    createToken: 'Create token',
+    tokenName: 'Name',
+    tokenNamePlaceholder: 'e.g. claude-code laptop',
+    tokenCreatedWarning: 'Copy this token now. It cannot be shown again.',
+    copyToken: 'Copy token',
+    tokenCopied: 'Token copied to clipboard',
+    revokeToken: 'Revoke',
+    revokeTokenConfirmTitle: 'Revoke this token?',
+    revokeTokenConfirmDescription: 'Agents using this token will immediately lose access. This cannot be undone.',
+    tokenRevoked: 'Revoked',
+    tokenLastUsed: 'Last used',
+    tokenNeverUsed: 'Never used',
+    noTokens: 'No tokens yet',
   },
   de: {
     // Common
@@ -304,6 +321,23 @@ export const translations = {
     removeScreenshot: 'Entfernen',
     maxFiles: 'Max 5 Bilder, je 5MB',
     screenshotDeleted: 'Screenshot gelöscht',
+
+    // API tokens (admin)
+    apiTokens: 'API-Tokens',
+    apiTokensDescription: 'Mit Tokens können KI-Agenten Feedback-Daten über die MCP-API lesen.',
+    createToken: 'Token erstellen',
+    tokenName: 'Name',
+    tokenNamePlaceholder: 'z. B. claude-code Laptop',
+    tokenCreatedWarning: 'Kopiere dieses Token jetzt. Es kann nicht erneut angezeigt werden.',
+    copyToken: 'Token kopieren',
+    tokenCopied: 'Token in die Zwischenablage kopiert',
+    revokeToken: 'Widerrufen',
+    revokeTokenConfirmTitle: 'Dieses Token widerrufen?',
+    revokeTokenConfirmDescription: 'Agenten mit diesem Token verlieren sofort den Zugriff. Dies kann nicht rückgängig gemacht werden.',
+    tokenRevoked: 'Widerrufen',
+    tokenLastUsed: 'Zuletzt verwendet',
+    tokenNeverUsed: 'Nie verwendet',
+    noTokens: 'Noch keine Tokens',
   },
 } as const;
 
