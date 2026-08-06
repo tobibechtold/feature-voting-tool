@@ -10,6 +10,7 @@ import {
   getVersionPlan,
   listApps,
   listFeedback,
+  updateStatus,
   type ToolOutcome,
 } from "./tools.ts";
 
@@ -26,6 +27,20 @@ const corsHeaders = {
 const FEEDBACK_STATUSES = ["open", "planned", "progress", "completed", "wont_do"] as const;
 const FEEDBACK_TYPES = ["feature", "bug"] as const;
 
+async function sendStatusChangeNotification(payload: unknown): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`send-notification failed: ${response.status}`);
+  }
+}
+
 function toToolResult(outcome: ToolOutcome) {
   if (!outcome.ok) {
     return { content: [{ type: "text" as const, text: outcome.error }], isError: true };
@@ -33,7 +48,10 @@ function toToolResult(outcome: ToolOutcome) {
   return { content: [{ type: "text" as const, text: JSON.stringify(outcome.data, null, 2) }] };
 }
 
-function buildServer(dataClient: ReturnType<typeof createClient>): McpServer {
+function buildServer(
+  dataClient: ReturnType<typeof createClient>,
+  serviceClient: ReturnType<typeof createClient>
+): McpServer {
   const server = new McpServer({ name: "feature-voting-tool", version: "1.0.0" });
 
   server.registerTool(
@@ -81,6 +99,19 @@ function buildServer(dataClient: ReturnType<typeof createClient>): McpServer {
       },
     },
     async ({ id }: { id: string }) => toToolResult(await getFeedback(dataClient, id))
+  );
+
+  server.registerTool(
+    "update_status",
+    {
+      description: "Change the status of a feedback item. Sends the same status-change email to opted-in submitters as the admin UI. Returns the updated item and whether a notification was sent.",
+      inputSchema: {
+        id: z.string().uuid().describe("Feedback item id"),
+        status: z.enum(FEEDBACK_STATUSES).describe("New status"),
+      },
+    },
+    async ({ id, status }: { id: string; status: string }) =>
+      toToolResult(await updateStatus(serviceClient, id, status, sendStatusChangeNotification))
   );
 
   return server;
@@ -137,7 +168,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { req: nodeReq, res: nodeRes } = toReqRes(req);
 
     const dataClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const server = buildServer(dataClient);
+    const server = buildServer(dataClient, service);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,

@@ -169,3 +169,65 @@ export async function getFeedback(
     },
   };
 }
+
+export type StatusNotifier = (payload: {
+  type: 'status_change';
+  feedback: { id: string; type: string; title: string; status: string; submitter_email: string; notify_on_updates: boolean };
+  appName: string;
+  appSlug: string;
+}) => Promise<void>;
+
+export async function updateStatus(
+  serviceClient: SupabaseLike,
+  feedbackId: string,
+  status: string,
+  notify: StatusNotifier
+): Promise<ToolOutcome> {
+  const { data: updated, error } = await serviceClient
+    .from('feedback')
+    .update({ status })
+    .eq('id', feedbackId)
+    .select(`${FEEDBACK_COLUMNS}, app_id, submitter_email, notify_on_updates`)
+    .maybeSingle();
+  throwIfError(error);
+  if (!updated) {
+    return {
+      ok: false,
+      error: `No feedback item with id '${feedbackId}'. Use list_feedback to find valid ids.`,
+    };
+  }
+
+  let notified = false;
+  if (updated.submitter_email && updated.notify_on_updates) {
+    const { data: app, error: appError } = await serviceClient
+      .from('apps')
+      .select('id, name, slug')
+      .eq('id', updated.app_id)
+      .maybeSingle();
+    throwIfError(appError);
+    if (app) {
+      try {
+        await notify({
+          type: 'status_change',
+          feedback: {
+            id: updated.id,
+            type: updated.type,
+            title: updated.title,
+            status: updated.status,
+            submitter_email: updated.submitter_email,
+            notify_on_updates: updated.notify_on_updates,
+          },
+          appName: app.name,
+          appSlug: app.slug,
+        });
+        notified = true;
+      } catch (_err) {
+        // Best effort: the status change already succeeded.
+        notified = false;
+      }
+    }
+  }
+
+  const { app_id: _appId, submitter_email: _email, notify_on_updates: _optIn, ...publicFields } = updated;
+  return { ok: true, data: { feedback: publicFields, notified } };
+}

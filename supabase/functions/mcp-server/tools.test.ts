@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getFeedback, getVersionPlan, listApps, listFeedback } from './tools';
+import { getFeedback, getVersionPlan, listApps, listFeedback, updateStatus } from './tools';
 
 type QueryResult = { data: unknown; error: Error | null };
 
@@ -13,7 +13,7 @@ function createBuilder(result: QueryResult) {
       return Promise.resolve(result).then(resolve);
     },
   };
-  for (const method of ['select', 'eq', 'is', 'order', 'maybeSingle']) {
+  for (const method of ['select', 'eq', 'is', 'order', 'maybeSingle', 'update']) {
     builder[method] = vi.fn((...args: unknown[]) => {
       builder.calls.push([method, args]);
       return method === 'maybeSingle' ? Promise.resolve(result) : builder;
@@ -191,5 +191,80 @@ describe('getFeedback', () => {
 
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.error).toContain("No feedback item with id 'missing-id'");
+  });
+});
+
+describe('updateStatus', () => {
+  const UPDATED_ROW = {
+    id: 'f-1', type: 'bug', title: 'Crash', description: 'It crashes', status: 'completed',
+    vote_count: 3, platform: 'web', version: '1.3.0', created_at: '2026-06-01T00:00:00Z',
+    app_id: 'app-1', submitter_email: 'user@example.com', notify_on_updates: true,
+  };
+
+  it('updates the status and notifies an opted-in submitter', async () => {
+    const notify = vi.fn(async () => undefined);
+    const client = createClient({
+      feedback: [createBuilder({ data: UPDATED_ROW, error: null })],
+      apps: [createBuilder({ data: { id: 'app-1', name: 'My App', slug: 'my-app' }, error: null })],
+    });
+
+    const outcome = await updateStatus(client, 'f-1', 'completed', notify);
+
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = outcome.data as any;
+      expect(data.notified).toBe(true);
+      expect(data.feedback.status).toBe('completed');
+      const serialized = JSON.stringify(data);
+      expect(serialized).not.toContain('submitter_email');
+      expect(serialized).not.toContain('user@example.com');
+      expect(serialized).not.toContain('app_id');
+    }
+    expect(notify).toHaveBeenCalledWith({
+      type: 'status_change',
+      feedback: { id: 'f-1', type: 'bug', title: 'Crash', status: 'completed', submitter_email: 'user@example.com', notify_on_updates: true },
+      appName: 'My App',
+      appSlug: 'my-app',
+    });
+  });
+
+  it('skips notification when the submitter opted out', async () => {
+    const notify = vi.fn(async () => undefined);
+    const client = createClient({
+      feedback: [createBuilder({ data: { ...UPDATED_ROW, notify_on_updates: false }, error: null })],
+    });
+
+    const outcome = await updateStatus(client, 'f-1', 'completed', notify);
+
+    expect(outcome.ok).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (outcome.ok) expect((outcome.data as any).notified).toBe(false);
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('returns notified false when the notifier throws, without failing', async () => {
+    const notify = vi.fn(async () => { throw new Error('smtp down'); });
+    const client = createClient({
+      feedback: [createBuilder({ data: UPDATED_ROW, error: null })],
+      apps: [createBuilder({ data: { id: 'app-1', name: 'My App', slug: 'my-app' }, error: null })],
+    });
+
+    const outcome = await updateStatus(client, 'f-1', 'completed', notify);
+
+    expect(outcome.ok).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (outcome.ok) expect((outcome.data as any).notified).toBe(false);
+  });
+
+  it('returns a helpful error for an unknown id', async () => {
+    const notify = vi.fn(async () => undefined);
+    const client = createClient({ feedback: [createBuilder({ data: null, error: null })] });
+
+    const outcome = await updateStatus(client, 'missing-id', 'completed', notify);
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error).toContain("No feedback item with id 'missing-id'");
+    expect(notify).not.toHaveBeenCalled();
   });
 });
