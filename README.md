@@ -17,7 +17,7 @@ If you want to use this tool for your own apps, you can deploy it to any static 
 - Public changelog grouped by release version with platform release status
 - Email notifications via Resend (new feedback, status updates, replies)
 - reCAPTCHA v3 protection for public comment submissions
-- Agent API: remote MCP server so AI agents (Claude Code, claude.ai) can read version plans and feedback and update item statuses, with admin-managed API tokens
+- Agent API: remote MCP server so AI agents (Claude Code, claude.ai) can read version plans and feedback, update item statuses, and post admin comments, with admin-managed API tokens
 
 ## 1. Prerequisites
 
@@ -177,8 +177,9 @@ Run these checks in order:
 The `mcp-server` edge function exposes the feedback data to AI agents over the
 Model Context Protocol (streamable HTTP). Agents can list apps, fetch every
 bug/feature planned for a version (including per-platform targets), scan
-open feedback for duplicates or already-fixed bugs, and update item statuses
-(with submitter notifications).
+open feedback for duplicates or already-fixed bugs, update item statuses, and
+post admin comments (both with the same submitter/commenter notifications as
+the admin UI).
 
 - Deploy it together with the other functions: `npm run supabase:functions:deploy`
   (no extra secrets needed; it uses the built-in Supabase env).
