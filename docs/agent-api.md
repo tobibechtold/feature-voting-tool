@@ -45,6 +45,7 @@ bugs that are already fixed in the codebase.
 ### get_feedback
 Arguments: `id` (uuid). Returns one item plus its comments
 (`content`, `is_admin`, `created_at`) and attachment image URLs.
+This is also how agents read a ticket's comment thread.
 
 ### update_status
 Arguments: `id` (uuid), `status`
@@ -54,8 +55,15 @@ move an implemented feature out of `progress`. If the submitter opted into
 notifications, the same status-change email is sent as when an admin changes
 the status in the UI; the response includes `notified` accordingly.
 
+### add_comment
+Arguments: `id` (uuid), `content` (max 5000 chars).
+Posts an admin comment on the item — e.g. explain what was fixed, or ask the
+reporter for more detail. Opted-in submitters and commenters receive the same
+emails as for admin comments written in the UI; the response includes
+`notifications_sent`.
+
 ## Notes
 
 - Responses are JSON in a text content block.
 - Submitter and commenter email addresses are never included.
-- Tokens grant read access and status-update write access.
+- Tokens grant read access plus status-update and comment write access.

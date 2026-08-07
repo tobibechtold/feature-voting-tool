@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getFeedback, getVersionPlan, listApps, listFeedback, updateStatus } from './tools';
+import { addComment, getFeedback, getVersionPlan, listApps, listFeedback, updateStatus } from './tools';
 
 type QueryResult = { data: unknown; error: Error | null };
 
@@ -13,7 +13,7 @@ function createBuilder(result: QueryResult) {
       return Promise.resolve(result).then(resolve);
     },
   };
-  for (const method of ['select', 'eq', 'is', 'order', 'maybeSingle', 'update']) {
+  for (const method of ['select', 'eq', 'is', 'order', 'maybeSingle', 'update', 'insert', 'not']) {
     builder[method] = vi.fn((...args: unknown[]) => {
       builder.calls.push([method, args]);
       return method === 'maybeSingle' ? Promise.resolve(result) : builder;
@@ -266,5 +266,104 @@ describe('updateStatus', () => {
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.error).toContain("No feedback item with id 'missing-id'");
     expect(notify).not.toHaveBeenCalled();
+  });
+});
+
+describe('addComment', () => {
+  const FEEDBACK_ROW = {
+    id: 'f-1', type: 'bug', title: 'Crash',
+    submitter_email: 'reporter@example.com', notify_on_updates: true, app_id: 'app-1',
+  };
+  const CREATED = { id: 'c-9', content: 'Fixed in 1.3.0', is_admin: true, created_at: '2026-08-07T00:00:00Z' };
+  const COMMENTERS = [
+    { commenter_email: 'alice@example.com' },
+    { commenter_email: 'alice@example.com' },
+    { commenter_email: 'reporter@example.com' },
+    { commenter_email: 'bob@example.com' },
+  ];
+
+  function buildClient(overrides?: { feedbackRow?: unknown; commenters?: unknown[] }) {
+    return createClient({
+      feedback: [createBuilder({ data: overrides?.feedbackRow === undefined ? FEEDBACK_ROW : overrides.feedbackRow, error: null })],
+      comments: [
+        createBuilder({ data: CREATED, error: null }),
+        createBuilder({ data: overrides?.commenters ?? COMMENTERS, error: null }),
+      ],
+      apps: [createBuilder({ data: { id: 'app-1', name: 'My App', slug: 'my-app' }, error: null })],
+    });
+  }
+
+  it('creates the comment and sends both notification types with dedupe', async () => {
+    const notify = vi.fn(async () => undefined);
+
+    const outcome = await addComment(buildClient(), 'f-1', 'Fixed in 1.3.0', notify);
+
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = outcome.data as any;
+      expect(data.comment).toEqual(CREATED);
+      // submitter + alice + bob (deduped, submitter excluded from reply list)
+      expect(data.notifications_sent).toBe(3);
+      expect(JSON.stringify(data)).not.toContain('@example.com');
+    }
+    const payloads = notify.mock.calls.map(([p]) => p);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const types = payloads.map((p: any) => p.type);
+    expect(types.filter((t: string) => t === 'admin_comment')).toHaveLength(1);
+    expect(types.filter((t: string) => t === 'admin_reply_to_comment')).toHaveLength(2);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const replyEmails = payloads.filter((p: any) => p.type === 'admin_reply_to_comment').map((p: any) => p.commenterEmail).sort();
+    expect(replyEmails).toEqual(['alice@example.com', 'bob@example.com']);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adminComment = payloads.find((p: any) => p.type === 'admin_comment') as any;
+    expect(adminComment.feedback.submitter_email).toBe('reporter@example.com');
+    expect(adminComment.comment).toBe('Fixed in 1.3.0');
+    expect(adminComment.appName).toBe('My App');
+    expect(adminComment.appSlug).toBe('my-app');
+  });
+
+  it('sends nothing when submitter opted out and no reply subscribers', async () => {
+    const notify = vi.fn(async () => undefined);
+    const client = buildClient({ feedbackRow: { ...FEEDBACK_ROW, notify_on_updates: false }, commenters: [] });
+
+    const outcome = await addComment(client, 'f-1', 'Noted', notify);
+
+    expect(outcome.ok).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (outcome.ok) expect((outcome.data as any).notifications_sent).toBe(0);
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('counts only successful sends when the notifier fails intermittently', async () => {
+    const notify = vi.fn(async () => undefined)
+      .mockRejectedValueOnce(new Error('smtp down'));
+
+    const outcome = await addComment(buildClient(), 'f-1', 'Fixed in 1.3.0', notify);
+
+    expect(outcome.ok).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (outcome.ok) expect((outcome.data as any).notifications_sent).toBe(2);
+  });
+
+  it('rejects empty and too-long content', async () => {
+    const notify = vi.fn(async () => undefined);
+
+    const empty = await addComment(buildClient(), 'f-1', '   ', notify);
+    expect(empty.ok).toBe(false);
+
+    const long = await addComment(buildClient(), 'f-1', 'x'.repeat(5001), notify);
+    expect(long.ok).toBe(false);
+    if (!long.ok) expect(long.error).toContain('5000');
+  });
+
+  it('returns a helpful error for an unknown id', async () => {
+    const notify = vi.fn(async () => undefined);
+    const client = createClient({ feedback: [createBuilder({ data: null, error: null })] });
+
+    const outcome = await addComment(client, 'missing-id', 'Hello', notify);
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error).toContain("No feedback item with id 'missing-id'");
   });
 });

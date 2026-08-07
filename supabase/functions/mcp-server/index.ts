@@ -6,6 +6,7 @@ import { toFetchResponse, toReqRes } from "npm:fetch-to-node@^2.1.0";
 import { z } from "npm:zod@^3.24.0";
 import { extractBearerToken, sha256Hex } from "./auth.ts";
 import {
+  addComment,
   getFeedback,
   getVersionPlan,
   listApps,
@@ -27,7 +28,7 @@ const corsHeaders = {
 const FEEDBACK_STATUSES = ["open", "planned", "progress", "completed", "wont_do"] as const;
 const FEEDBACK_TYPES = ["feature", "bug"] as const;
 
-async function sendStatusChangeNotification(payload: unknown): Promise<void> {
+async function sendNotificationPayload(payload: unknown): Promise<void> {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
     method: "POST",
     headers: {
@@ -111,7 +112,20 @@ function buildServer(
       },
     },
     async ({ id, status }: { id: string; status: string }) =>
-      toToolResult(await updateStatus(serviceClient, id, status, sendStatusChangeNotification))
+      toToolResult(await updateStatus(serviceClient, id, status, sendNotificationPayload))
+  );
+
+  server.registerTool(
+    "add_comment",
+    {
+      description: "Post an admin comment on a feedback item (e.g. explain a fix or ask the reporter a question). Sends the same emails to opted-in submitters/commenters as admin comments from the UI.",
+      inputSchema: {
+        id: z.string().uuid().describe("Feedback item id"),
+        content: z.string().describe("Comment text (max 5000 characters)"),
+      },
+    },
+    async ({ id, content }: { id: string; content: string }) =>
+      toToolResult(await addComment(serviceClient, id, content, sendNotificationPayload))
   );
 
   return server;
