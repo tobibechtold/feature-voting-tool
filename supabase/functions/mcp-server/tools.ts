@@ -328,3 +328,165 @@ export async function addComment(
 
   return { ok: true, data: { comment: created, notifications_sent: notificationsSent } };
 }
+
+const ALL_PLATFORMS = 'all';
+
+/**
+ * Which platform targets a version assignment creates when the caller does not say.
+ * Mirrors how the admin UI is used in practice: a feature ships on every platform
+ * the app has, a bug ships on the platform it was reported for.
+ */
+export function resolveTargetPlatforms(input: {
+  requested?: string[];
+  type: string;
+  platform: string | null;
+  appPlatforms: string[];
+}): { ok: true; platforms: string[] } | { ok: false; error: string } {
+  const allowed = [...input.appPlatforms, ALL_PLATFORMS];
+  const requested = (input.requested ?? []).map((p) => p.trim()).filter((p) => p.length > 0);
+  if (requested.length > 0) {
+    const unknown = requested.filter((p) => !allowed.includes(p));
+    if (unknown.length > 0) {
+      return {
+        ok: false,
+        error: `Unknown platform(s) ${unknown.join(', ')}. Allowed: ${allowed.join(', ')}.`,
+      };
+    }
+    return { ok: true, platforms: Array.from(new Set(requested)) };
+  }
+  if (input.type === 'bug' && input.platform && allowed.includes(input.platform)) {
+    return { ok: true, platforms: [input.platform] };
+  }
+  return { ok: true, platforms: input.appPlatforms.length > 0 ? [...input.appPlatforms] : [ALL_PLATFORMS] };
+}
+
+/**
+ * Assigns a feedback item to a release, the way the admin UI's release picker does
+ * (useReleases.assignFeedbackRelease): one feedback_release_targets row per platform,
+ * the release_group_platforms row kept (published state preserved), and the legacy
+ * feedback.version column mirrored. The release must already exist - an agent typo must
+ * not create a stray release the way the UI's upsert would. No e-mail: the UI sends none
+ * for a version change either.
+ */
+export async function setVersion(
+  serviceClient: SupabaseLike,
+  feedbackId: string,
+  version: string,
+  platforms?: string[]
+): Promise<ToolOutcome> {
+  const semver = version.trim();
+  if (semver.length === 0) {
+    return { ok: false, error: 'Version must not be empty.' };
+  }
+
+  const { data: feedback, error: feedbackError } = await serviceClient
+    .from('feedback')
+    .select('id, type, platform, app_id')
+    .eq('id', feedbackId)
+    .maybeSingle();
+  throwIfError(feedbackError);
+  if (!feedback) {
+    return {
+      ok: false,
+      error: `No feedback item with id '${feedbackId}'. Use list_feedback to find valid ids.`,
+    };
+  }
+
+  const { data: app, error: appError } = await serviceClient
+    .from('apps')
+    .select('id, name, slug, platforms')
+    .eq('id', feedback.app_id)
+    .maybeSingle();
+  throwIfError(appError);
+  const appPlatforms: string[] = app?.platforms ?? [];
+
+  const { data: group, error: groupError } = await serviceClient
+    .from('release_groups')
+    .select('id, semver')
+    .eq('app_id', feedback.app_id)
+    .eq('semver', semver)
+    .maybeSingle();
+  throwIfError(groupError);
+  if (!group) {
+    const { data: available, error: availableError } = await serviceClient
+      .from('release_groups')
+      .select('semver')
+      .eq('app_id', feedback.app_id)
+      .order('created_at', { ascending: false });
+    throwIfError(availableError);
+    const semvers = (available ?? []).map((row: { semver: string }) => row.semver);
+    const hint = semvers.length > 0
+      ? `Available versions: ${semvers.join(', ')}. Create new releases in the admin UI.`
+      : 'This app has no releases yet. Create one in the admin UI first.';
+    return { ok: false, error: `No release '${semver}' for this app. ${hint}` };
+  }
+
+  const resolved = resolveTargetPlatforms({
+    requested: platforms,
+    type: feedback.type,
+    platform: feedback.platform,
+    appPlatforms,
+  });
+  if (!resolved.ok) return resolved;
+
+  for (const platform of resolved.platforms) {
+    // Preserve published metadata for an existing platform row.
+    const { data: existingPlatform, error: existingError } = await serviceClient
+      .from('release_group_platforms')
+      .select('status, released_at')
+      .eq('release_group_id', group.id)
+      .eq('platform', platform)
+      .maybeSingle();
+    throwIfError(existingError);
+
+    const { error: platformError } = await serviceClient
+      .from('release_group_platforms')
+      .upsert(
+        {
+          release_group_id: group.id,
+          platform,
+          version: semver,
+          status: existingPlatform?.status ?? 'planned',
+          released_at: existingPlatform?.released_at ?? null,
+        },
+        { onConflict: 'release_group_id,platform' }
+      );
+    throwIfError(platformError);
+
+    // An "all" target replaces per-platform ones, a per-platform target replaces "all".
+    let removal = serviceClient
+      .from('feedback_release_targets')
+      .delete()
+      .eq('feedback_id', feedbackId);
+    if (platform !== ALL_PLATFORMS) {
+      removal = removal.or(`platform.eq.${platform},platform.eq.${ALL_PLATFORMS}`);
+    }
+    const { error: removalError } = await removal;
+    throwIfError(removalError);
+
+    const { error: targetError } = await serviceClient
+      .from('feedback_release_targets')
+      .upsert(
+        { feedback_id: feedbackId, release_group_id: group.id, platform },
+        { onConflict: 'feedback_id,release_group_id,platform' }
+      );
+    throwIfError(targetError);
+  }
+
+  const { data: updated, error: updateError } = await serviceClient
+    .from('feedback')
+    .update({ version: semver })
+    .eq('id', feedbackId)
+    .select(FEEDBACK_COLUMNS)
+    .maybeSingle();
+  throwIfError(updateError);
+
+  return {
+    ok: true,
+    data: {
+      feedback: updated,
+      release: { semver: group.semver },
+      target_platforms: resolved.platforms,
+    },
+  };
+}

@@ -11,6 +11,7 @@ import {
   getVersionPlan,
   listApps,
   listFeedback,
+  setVersion,
   updateStatus,
   type ToolOutcome,
 } from "./tools.ts";
@@ -113,6 +114,20 @@ function buildServer(
     },
     async ({ id, status }: { id: string; status: string }) =>
       toToolResult(await updateStatus(serviceClient, id, status, sendNotificationPayload))
+  );
+
+  server.registerTool(
+    "set_version",
+    {
+      description: "Assign a feedback item to a release version, as the admin UI's release picker does. The release must already exist for the item's app (see get_version_plan). Platforms default to every platform of the app for a feature and to the item's own platform for a bug; pass 'platforms' to override (app platform names or 'all'). Does not change the status and sends no e-mail.",
+      inputSchema: {
+        id: z.string().uuid().describe("Feedback item id"),
+        version: z.string().describe("Semver of an existing release, e.g. '1.3.0'"),
+        platforms: z.array(z.string()).optional().describe("Target platforms, e.g. ['android'] or ['all']; omit for the default"),
+      },
+    },
+    async ({ id, version, platforms }: { id: string; version: string; platforms?: string[] }) =>
+      toToolResult(await setVersion(serviceClient, id, version, platforms))
   );
 
   server.registerTool(

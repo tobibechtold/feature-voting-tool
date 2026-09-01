@@ -55,6 +55,19 @@ move an implemented feature out of `progress`. If the submitter opted into
 notifications, the same status-change email is sent as when an admin changes
 the status in the UI; the response includes `notified` accordingly.
 
+### set_version
+Arguments: `id` (feedback uuid), `version` (semver of an **existing** release of
+the item's app), optional `platforms` (array of the app's platform names or
+`all`).
+Assigns the item to the release the way the admin UI's release picker does:
+one release target per platform, the release's platform row kept (a released
+platform stays released), and the legacy `version` column mirrored. Platform
+default when `platforms` is omitted: every platform of the app for a
+`feature`, the item's own platform for a `bug`. An unknown version is refused
+and the existing versions are listed — releases are created in the admin UI,
+never by an agent. Does not change the status and sends no e-mail; combine
+with `update_status` for "shipped in 1.3.0".
+
 ### add_comment
 Arguments: `id` (uuid), `content` (max 5000 chars).
 Posts an admin comment on the item — e.g. explain what was fixed, or ask the
