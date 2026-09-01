@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { addComment, getFeedback, getVersionPlan, listApps, listFeedback, updateStatus } from './tools';
+import { addComment, getFeedback, getVersionPlan, listApps, listFeedback, resolveTargetPlatforms, setVersion, updateStatus } from './tools';
 
 type QueryResult = { data: unknown; error: Error | null };
 
@@ -13,7 +13,7 @@ function createBuilder(result: QueryResult) {
       return Promise.resolve(result).then(resolve);
     },
   };
-  for (const method of ['select', 'eq', 'is', 'order', 'maybeSingle', 'update', 'insert', 'not']) {
+  for (const method of ['select', 'eq', 'is', 'or', 'order', 'maybeSingle', 'update', 'insert', 'upsert', 'delete', 'not']) {
     builder[method] = vi.fn((...args: unknown[]) => {
       builder.calls.push([method, args]);
       return method === 'maybeSingle' ? Promise.resolve(result) : builder;
@@ -362,6 +362,147 @@ describe('addComment', () => {
     const client = createClient({ feedback: [createBuilder({ data: null, error: null })] });
 
     const outcome = await addComment(client, 'missing-id', 'Hello', notify);
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error).toContain("No feedback item with id 'missing-id'");
+  });
+});
+
+describe('resolveTargetPlatforms', () => {
+  const APP_PLATFORMS = ['ios', 'android'];
+
+  it('gives a feature every platform of the app', () => {
+    expect(resolveTargetPlatforms({ type: 'feature', platform: null, appPlatforms: APP_PLATFORMS }))
+      .toEqual({ ok: true, platforms: ['ios', 'android'] });
+  });
+
+  it('gives a bug its own platform', () => {
+    expect(resolveTargetPlatforms({ type: 'bug', platform: 'android', appPlatforms: APP_PLATFORMS }))
+      .toEqual({ ok: true, platforms: ['android'] });
+  });
+
+  it('falls back to every platform for a bug without one', () => {
+    expect(resolveTargetPlatforms({ type: 'bug', platform: null, appPlatforms: APP_PLATFORMS }))
+      .toEqual({ ok: true, platforms: ['ios', 'android'] });
+  });
+
+  it('lets an explicit list override the default, deduplicated', () => {
+    expect(resolveTargetPlatforms({ requested: ['all', 'all'], type: 'bug', platform: 'android', appPlatforms: APP_PLATFORMS }))
+      .toEqual({ ok: true, platforms: ['all'] });
+  });
+
+  it('rejects a platform the app does not have', () => {
+    const outcome = resolveTargetPlatforms({ requested: ['web'], type: 'feature', platform: null, appPlatforms: APP_PLATFORMS });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error).toContain("Unknown platform(s) web. Allowed: ios, android, all.");
+  });
+});
+
+describe('setVersion', () => {
+  const BUG = { id: 'f-1', type: 'bug', platform: 'android', app_id: 'app-1' };
+  const FEATURE = { id: 'f-2', type: 'feature', platform: null, app_id: 'app-1' };
+  const APP_ROW = { ...APP, platforms: ['ios', 'android'] };
+  const GROUP = { id: 'rg-1', semver: '2.6.1' };
+  const UPDATED = {
+    id: 'f-1', type: 'bug', title: 'Crash', description: 'It crashes', status: 'completed',
+    vote_count: 3, platform: 'android', version: '2.6.1', created_at: '2026-06-01T00:00:00Z',
+  };
+
+  function clientFor(feedback: unknown, targetsPerPlatform: number) {
+    const platformBuilders = [] as ReturnType<typeof createBuilder>[];
+    const targetBuilders = [] as ReturnType<typeof createBuilder>[];
+    for (let i = 0; i < targetsPerPlatform; i++) {
+      platformBuilders.push(createBuilder({ data: { status: 'released', released_at: '2026-09-01T00:00:00Z' }, error: null }));
+      platformBuilders.push(createBuilder({ data: null, error: null }));
+      targetBuilders.push(createBuilder({ data: null, error: null }));
+      targetBuilders.push(createBuilder({ data: null, error: null }));
+    }
+    const builders = {
+      feedback: [createBuilder({ data: feedback, error: null }), createBuilder({ data: UPDATED, error: null })],
+      apps: [createBuilder({ data: APP_ROW, error: null })],
+      release_groups: [createBuilder({ data: GROUP, error: null })],
+      release_group_platforms: platformBuilders,
+      feedback_release_targets: targetBuilders,
+    };
+    return { client: createClient(builders), builders };
+  }
+
+  it('targets a bug at its own platform and mirrors the legacy version column', async () => {
+    const { client, builders } = clientFor(BUG, 1);
+
+    const outcome = await setVersion(client, 'f-1', '2.6.1');
+
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = outcome.data as any;
+      expect(data.target_platforms).toEqual(['android']);
+      expect(data.release.semver).toBe('2.6.1');
+      expect(data.feedback.version).toBe('2.6.1');
+      expect(JSON.stringify(data)).not.toContain('app_id');
+    }
+    // Existing platform row keeps its released state.
+    expect(builders.release_group_platforms[1].upsert).toHaveBeenCalledWith(
+      { release_group_id: 'rg-1', platform: 'android', version: '2.6.1', status: 'released', released_at: '2026-09-01T00:00:00Z' },
+      { onConflict: 'release_group_id,platform' }
+    );
+    // A per-platform target replaces that platform's and any "all" target.
+    expect(builders.feedback_release_targets[0].delete).toHaveBeenCalled();
+    expect(builders.feedback_release_targets[0].or).toHaveBeenCalledWith('platform.eq.android,platform.eq.all');
+    expect(builders.feedback_release_targets[1].upsert).toHaveBeenCalledWith(
+      { feedback_id: 'f-1', release_group_id: 'rg-1', platform: 'android' },
+      { onConflict: 'feedback_id,release_group_id,platform' }
+    );
+    expect(builders.feedback[1].update).toHaveBeenCalledWith({ version: '2.6.1' });
+  });
+
+  it('targets a feature at every platform of the app', async () => {
+    const { client, builders } = clientFor(FEATURE, 2);
+
+    const outcome = await setVersion(client, 'f-2', '2.6.1');
+
+    expect(outcome.ok).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (outcome.ok) expect((outcome.data as any).target_platforms).toEqual(['ios', 'android']);
+    expect(builders.feedback_release_targets[1].upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ platform: 'ios' }), expect.anything()
+    );
+    expect(builders.feedback_release_targets[3].upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ platform: 'android' }), expect.anything()
+    );
+  });
+
+  it('replaces every per-platform target when assigning to all', async () => {
+    const { client, builders } = clientFor(BUG, 1);
+
+    const outcome = await setVersion(client, 'f-1', '2.6.1', ['all']);
+
+    expect(outcome.ok).toBe(true);
+    expect(builders.feedback_release_targets[0].delete).toHaveBeenCalled();
+    expect(builders.feedback_release_targets[0].or).not.toHaveBeenCalled();
+  });
+
+  it('refuses an unknown release and lists the existing ones', async () => {
+    const client = createClient({
+      feedback: [createBuilder({ data: BUG, error: null })],
+      apps: [createBuilder({ data: APP_ROW, error: null })],
+      release_groups: [
+        createBuilder({ data: null, error: null }),
+        createBuilder({ data: [{ semver: '2.6.1' }, { semver: '2.6.0' }], error: null }),
+      ],
+    });
+
+    const outcome = await setVersion(client, 'f-1', '9.9.9');
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error).toBe("No release '9.9.9' for this app. Available versions: 2.6.1, 2.6.0. Create new releases in the admin UI.");
+    expect(client.from).not.toHaveBeenCalledWith('feedback_release_targets');
+  });
+
+  it('returns a helpful error for an unknown id', async () => {
+    const client = createClient({ feedback: [createBuilder({ data: null, error: null })] });
+
+    const outcome = await setVersion(client, 'missing-id', '2.6.1');
 
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.error).toContain("No feedback item with id 'missing-id'");
