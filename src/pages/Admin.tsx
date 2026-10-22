@@ -44,6 +44,8 @@ import { useUploadLogo, useDeleteLogo } from '@/hooks/useStorage';
 import { useToast } from '@/hooks/use-toast';
 import { App } from '@/types';
 import { formatPlatformsInput, parsePlatformsInput } from '@/lib/platforms';
+import { deriveItemKey, isValidItemKey } from '@/lib/itemKey';
+import { AppKeyField } from '@/components/AppKeyField';
 
 export default function Admin() {
   const { isAdmin, authLoading } = useApp();
@@ -65,9 +67,12 @@ export default function Admin() {
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
+    item_key: '',
     description: '',
     platforms: 'web',
   });
+  const [keyTouched, setKeyTouched] = useState(false);
+  const [keyError, setKeyError] = useState<string | undefined>();
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
@@ -91,7 +96,9 @@ export default function Admin() {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', slug: '', description: '', platforms: 'web' });
+    setFormData({ name: '', slug: '', item_key: '', description: '', platforms: 'web' });
+    setKeyTouched(false);
+    setKeyError(undefined);
     setLogoFile(null);
     setLogoPreview(null);
     setRemoveLogo(false);
@@ -108,9 +115,12 @@ export default function Admin() {
     setFormData({
       name: app.name,
       slug: app.slug,
+      item_key: app.item_key,
       description: app.description || '',
       platforms: formatPlatformsInput(app.platforms || []),
     });
+    setKeyTouched(true);
+    setKeyError(undefined);
     setLogoPreview(app.logo_url);
     setLogoFile(null);
     setRemoveLogo(false);
@@ -149,6 +159,12 @@ export default function Admin() {
       return;
     }
     
+    if (!isValidItemKey(formData.item_key)) {
+      setKeyError(t('appKeyInvalid'));
+      return;
+    }
+    setKeyError(undefined);
+
     try {
       let logoUrl: string | null = editingApp?.logo_url || null;
 
@@ -172,6 +188,7 @@ export default function Admin() {
           description: formData.description || null,
           logo_url: logoUrl,
           platforms: parsedPlatforms,
+          item_key: formData.item_key,
         });
         toast({ title: t('appUpdated') });
       } else {
@@ -181,6 +198,7 @@ export default function Admin() {
           slug: formData.slug.toLowerCase().replace(/\s+/g, '-'),
           description: formData.description || null,
           platforms: parsedPlatforms,
+          item_key: formData.item_key,
         });
 
         // Upload logo if provided
@@ -195,9 +213,14 @@ export default function Admin() {
       setDialogOpen(false);
       resetForm();
     } catch (error) {
+      const err = error as { code?: string; message?: string };
+      if (err.code === '23505' && err.message?.includes('apps_item_key_key')) {
+        setKeyError(t('appKeyTaken'));
+        return;
+      }
       toast({
         title: 'Error',
-        description: (error as Error).message,
+        description: err.message,
         variant: 'destructive',
       });
     }
@@ -450,10 +473,14 @@ export default function Admin() {
                 id="slug"
                 value={formData.slug}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
-                  }))
+                  setFormData((prev) => {
+                    const slug = e.target.value.toLowerCase().replace(/\s+/g, '-');
+                    return {
+                      ...prev,
+                      slug,
+                      item_key: keyTouched ? prev.item_key : deriveItemKey(slug),
+                    };
+                  })
                 }
                 placeholder="my-awesome-app"
                 required
@@ -463,6 +490,19 @@ export default function Admin() {
               </p>
             </div>
             
+            <div className="space-y-2">
+              <Label htmlFor="item_key">{t('appKey')}</Label>
+              <AppKeyField
+                value={formData.item_key}
+                onChange={(value) => {
+                  setKeyTouched(true);
+                  setKeyError(undefined);
+                  setFormData((prev) => ({ ...prev, item_key: value }));
+                }}
+                error={keyError}
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">{t('appDescription')}</Label>
               <Textarea
