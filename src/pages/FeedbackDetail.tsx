@@ -56,10 +56,10 @@ export default function FeedbackDetail() {
   const { executeRecaptcha } = useGoogleReCaptcha();
   
   const { data: app, isLoading: appLoading, error: appError, fetchStatus: appFetchStatus, refetch: refetchApp } = useAppData(slug);
-  const { data: item, isLoading: itemLoading, error: itemError, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id);
-  const { data: comments, isLoading: commentsLoading, error: commentsError, fetchStatus: commentsFetchStatus, refetch: refetchComments } = useComments(id);
-  const { data: attachments } = useAttachments(id);
-  const { data: releaseTargets = [] } = useFeedbackReleaseTargets(id);
+  const { data: item, isLoading: itemLoading, error: itemError, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id, app);
+  const { data: comments, isLoading: commentsLoading, error: commentsError, fetchStatus: commentsFetchStatus, refetch: refetchComments } = useComments(item?.id);
+  const { data: attachments } = useAttachments(item?.id);
+  const { data: releaseTargets = [] } = useFeedbackReleaseTargets(item?.id);
   const { data: votedItems } = useVotedItems();
   const vote = useVote();
   const updateStatus = useUpdateFeedbackStatus();
@@ -679,9 +679,9 @@ export default function FeedbackDetail() {
             <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                if (deleteCommentId && id) {
+                if (deleteCommentId && item) {
                   try {
-                    await deleteComment.mutateAsync({ commentId: deleteCommentId, feedbackId: id });
+                    await deleteComment.mutateAsync({ commentId: deleteCommentId, feedbackId: item.id });
                     setDeleteCommentId(null);
                     toast({ title: t('commentDeleted') });
                   } catch (error) {
