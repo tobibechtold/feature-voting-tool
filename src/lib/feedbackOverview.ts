@@ -1,3 +1,4 @@
+import { parseItemKey } from '@/lib/itemKey';
 import type { FeedbackItem, FeedbackStatus, FeedbackType } from '@/types';
 
 export type OverviewFilterType = 'all' | FeedbackType;
@@ -17,6 +18,8 @@ type FilterAndSortOptions = {
   filterStatuses: FeedbackStatus[];
   sortMode: OverviewSortMode;
   versionFilter: OverviewVersionFilter;
+  searchQuery?: string;
+  appKey?: string;
 };
 
 function normalizeVersion(version?: string | null): string | null {
@@ -139,6 +142,23 @@ export function filterFeedbackByVersion(
   return items.filter((item) => normalizeVersion(item.version) === selectedVersion);
 }
 
+function matchesSearch(item: FeedbackItem, query: string, appKey?: string): boolean {
+  const parsedKey = parseItemKey(query);
+  if (parsedKey) {
+    return parsedKey.appKey === appKey?.toUpperCase() && item.number === parsedKey.number;
+  }
+
+  if (/^#?\d+$/.test(query)) {
+    return item.number === Number.parseInt(query.replace('#', ''), 10);
+  }
+
+  const needle = query.toLowerCase();
+  return (
+    item.title.toLowerCase().includes(needle) ||
+    (item.description ?? '').toLowerCase().includes(needle)
+  );
+}
+
 export function filterAndSortFeedback(items: FeedbackItem[], options: FilterAndSortOptions): FeedbackItem[] {
   let nextItems = [...items];
 
@@ -151,6 +171,11 @@ export function filterAndSortFeedback(items: FeedbackItem[], options: FilterAndS
   }
 
   nextItems = filterFeedbackByVersion(nextItems, options.versionFilter);
+
+  const searchQuery = options.searchQuery?.trim();
+  if (searchQuery) {
+    nextItems = nextItems.filter((item) => matchesSearch(item, searchQuery, options.appKey));
+  }
 
   nextItems.sort((a, b) => {
     const aClosed = isClosedStatus(a.status);

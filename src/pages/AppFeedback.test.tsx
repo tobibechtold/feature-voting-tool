@@ -57,7 +57,7 @@ vi.mock('@/hooks/useApps', () => ({
 
 vi.mock('@/hooks/useFeedback', () => ({
   useFeedback: () => ({
-    data: [{ id: 'f1', number: 42, type: 'feature', title: 'T', description: 'D', status: 'open', vote_count: 0, created_at: '2026-01-01T00:00:00.000Z', platform: null, version: null }],
+    data: [42, 43, 44].map((number) => ({ id: `f${number}`, number, type: 'feature', title: 'T', description: 'D', status: 'open', vote_count: 0, created_at: '2026-01-01T00:00:00.000Z', platform: null, version: null })),
     isLoading: false,
     error: null,
     fetchStatus: 'idle',
@@ -107,9 +107,24 @@ describe('AppFeedback page', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByTestId('feedback-card')).toHaveTextContent('ROADMAPTOO-42');
+    expect(screen.getAllByTestId('feedback-card')[0]).toHaveTextContent('ROADMAPTOO-42');
   });
 
+  it('filters feedback cards by key search', () => {
+    render(
+      <MemoryRouter initialEntries={['/app/roadmap-tool']}>
+        <Routes>
+          <Route path="/app/:slug" element={<AppFeedback />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getAllByTestId('feedback-card')).toHaveLength(3);
+    fireEvent.change(screen.getByPlaceholderText('searchFeedback'), { target: { value: 'ROADMAPTOO-43' } });
+
+    expect(screen.getAllByTestId('feedback-card')).toHaveLength(1);
+    expect(screen.getByTestId('feedback-card')).toHaveTextContent('ROADMAPTOO-43');
+  });
 
   it('renders a single new feedback action and removes separate feature and bug buttons', async () => {
     render(

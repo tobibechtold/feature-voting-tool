@@ -132,4 +132,38 @@ describe('feedback overview helpers', () => {
     const options = getVersionOptions(items);
     expect(options).toEqual(['9.0.0', '2.0.0', '1.2.0']);
   });
+
+  describe('search', () => {
+    const searchItems: FeedbackItem[] = [
+      makeItem({ id: 'a', number: 1, title: 'Dark mode' }),
+      makeItem({ id: 'b', number: 2, title: 'App Crash', description: 'on start' }),
+      makeItem({ id: 'c', number: 3, title: 'Export', description: 'Fails with CRASH report' }),
+    ];
+    const search = (searchQuery: string) =>
+      filterAndSortFeedback(searchItems, {
+        sortMode: 'popularity',
+        filterType: 'all',
+        filterStatuses: [],
+        versionFilter: 'all',
+        searchQuery,
+        appKey: 'INTAKE',
+      }).map((item) => item.id);
+
+    it.each(['INTAKE-2', 'intake-2', ' intake-2 ', '2', '#2'])('matches item 2 by key or number: %s', (query) => {
+      expect(search(query)).toEqual(['b']);
+    });
+
+    it('returns nothing for another app key', () => {
+      expect(search('FOO-2')).toEqual([]);
+    });
+
+    it('matches title and description case-insensitively', () => {
+      expect(search('crash').sort()).toEqual(['b', 'c']);
+    });
+
+    it('does not filter on empty or whitespace queries', () => {
+      expect(search('')).toHaveLength(3);
+      expect(search('   ')).toHaveLength(3);
+    });
+  });
 });

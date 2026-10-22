@@ -7,6 +7,7 @@ import { FeedbackCard } from '@/components/FeedbackCard';
 import { FeedbackStateSections } from '@/components/feedback/FeedbackStateSections';
 import { CreateFeedbackDialog } from '@/components/CreateFeedbackDialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -48,6 +49,7 @@ export default function AppFeedback() {
   const [filterType, setFilterType] = useState<OverviewFilterType>('all');
   const [filterStatus, setFilterStatus] = useState<FeedbackStatus[]>([]);
   const [sortMode, setSortMode] = useState<OverviewSortMode>(() => loadOverviewSortMode(slug));
+  const [searchQuery, setSearchQuery] = useState('');
   const [versionFilter, setVersionFilter] = useState<OverviewVersionFilter>('all');
   const [groupByState, setGroupByState] = useState<boolean>(() => loadGroupedFeedbackEnabled(slug));
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -75,8 +77,10 @@ export default function AppFeedback() {
         filterStatuses: filterStatus,
         sortMode,
         versionFilter,
+        searchQuery,
+        appKey: app?.item_key,
       }),
-    [feedback, filterType, filterStatus, sortMode, versionFilter]
+    [feedback, filterType, filterStatus, sortMode, versionFilter, searchQuery, app?.item_key]
   );
 
   const handleVote = (id: string) => {
@@ -216,6 +220,17 @@ export default function AppFeedback() {
           <p className="text-muted-foreground mb-6 animate-fade-in" style={{ animationDelay: '50ms' }}>
             {t('feedbackWelcomeMessage')}
           </p>
+
+          {/* Search */}
+          <div className="mb-4 animate-fade-in" style={{ animationDelay: '75ms' }}>
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t('searchFeedback')}
+              aria-label={t('searchFeedback')}
+            />
+          </div>
 
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-4 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
