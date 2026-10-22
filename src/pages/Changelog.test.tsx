@@ -31,6 +31,7 @@ vi.mock('@/hooks/useApps', () => ({
       id: 'app-1',
       name: 'Roadmap Tool',
       slug: 'roadmap-tool',
+      item_key: 'ROADMAPTOO',
       description: 'Product feedback',
       logo_url: null,
       platforms: ['web'],
@@ -59,6 +60,7 @@ vi.mock('@/hooks/useReleases', () => ({
           {
             feedback: {
               id: 'feedback-1',
+              number: 7,
               type: 'feature',
               title: 'Roadmap item',
               status: 'open',
@@ -102,6 +104,6 @@ describe('Changelog page', () => {
     expect(within(appNavigation).getByRole('link', { name: /^feedback$/i })).toHaveAttribute('href', '/app/roadmap-tool');
     expect(within(appNavigation).getByRole('link', { name: /^roadmap$/i })).toHaveAttribute('href', '/app/roadmap-tool/roadmap');
     expect(within(appNavigation).getByRole('link', { name: /^changelog$/i })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: /roadmap item/i })).toHaveAttribute('href', '/app/roadmap-tool/feedback-1');
+    expect(screen.getByRole('link', { name: /roadmap item/i })).toHaveAttribute('href', '/app/roadmap-tool/ROADMAPTOO-7');
   });
 });

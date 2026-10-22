@@ -273,6 +273,7 @@ function renderBoard(props: Partial<{
           ]
         }
         appSlug="roadmap-tool"
+        appKey="ROADMAPTOO"
         isAdmin={props.isAdmin ?? false}
         getStatusLabel={getStatusLabel}
         onMoveItem={props.onMoveItem || vi.fn().mockResolvedValue(undefined)}

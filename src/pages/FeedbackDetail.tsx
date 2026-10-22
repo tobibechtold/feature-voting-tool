@@ -46,6 +46,7 @@ import { FeedbackStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { de, enUS } from 'date-fns/locale';
 import { normalizePlatformLabel } from '@/lib/platforms';
+import { ItemKeyLabel } from '@/components/ItemKeyLabel';
 
 export default function FeedbackDetail() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
@@ -350,6 +351,7 @@ export default function FeedbackDetail() {
                     )}
                   </div>
                     
+                  {app && <ItemKeyLabel appKey={app.item_key} number={item.number} className="block mb-1" />}
                   <h1 className="text-2xl font-bold mb-4">{item.title}</h1>
                     
                   <p className="text-muted-foreground whitespace-pre-wrap">

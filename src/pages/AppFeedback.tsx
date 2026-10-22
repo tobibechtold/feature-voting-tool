@@ -337,6 +337,7 @@ export default function AppFeedback() {
                   slug={slug!}
                   items={filteredFeedback}
                   appSlug={slug!}
+                  appKey={app.item_key}
                   votedItems={votedItems || new Set()}
                   onVote={handleVote}
                 />
@@ -350,6 +351,7 @@ export default function AppFeedback() {
                     <FeedbackCard
                       item={item}
                       appSlug={slug!}
+                      appKey={app.item_key}
                       voted={votedItems?.has(item.id) || false}
                       onVote={handleVote}
                     />

@@ -8,10 +8,13 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useCommentCount } from '@/hooks/useComments';
 import { normalizePlatformLabel } from '@/lib/platforms';
+import { formatItemKey } from '@/lib/itemKey';
+import { ItemKeyLabel } from '@/components/ItemKeyLabel';
 
 interface FeedbackCardProps {
   item: FeedbackItem;
   appSlug: string;
+  appKey: string;
   voted: boolean;
   onVote: (id: string) => void;
 }
@@ -19,6 +22,7 @@ interface FeedbackCardProps {
 export function FeedbackCard({
   item,
   appSlug,
+  appKey,
   voted,
   onVote,
 }: FeedbackCardProps) {
@@ -41,7 +45,7 @@ export function FeedbackCard({
   };
 
   return (
-    <Link to={`/app/${appSlug}/${item.id}`}>
+    <Link to={`/app/${appSlug}/${formatItemKey(appKey, item.number)}`}>
       <Card className={cn(
         "group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20",
         (item.status === 'completed' || item.status === 'wont_do') && "opacity-60"
@@ -69,6 +73,7 @@ export function FeedbackCard({
             </div>
             
             {/* Content */}
+            <ItemKeyLabel appKey={appKey} number={item.number} />
             <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
               {item.title}
             </h3>

@@ -12,6 +12,7 @@ interface RoadmapLaneProps {
   label: string;
   items: FeedbackItem[];
   appSlug: string;
+  appKey: string;
   isAdmin: boolean;
   votedItems: Set<string>;
   onVote: (feedbackId: string) => void;
@@ -23,6 +24,7 @@ export function RoadmapLane({
   label,
   items,
   appSlug,
+  appKey,
   isAdmin,
   votedItems,
   onVote,
@@ -59,6 +61,7 @@ export function RoadmapLane({
                 key={item.id}
                 item={item}
                 appSlug={appSlug}
+                appKey={appKey}
                 isAdmin={isAdmin}
                 voted={votedItems.has(item.id)}
                 onVote={onVote}

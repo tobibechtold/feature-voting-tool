@@ -67,6 +67,7 @@ export function useReleaseGroups(appId: string | undefined) {
             feedback:feedback_id (
               id,
               app_id,
+              number,
               type,
               title,
               description,

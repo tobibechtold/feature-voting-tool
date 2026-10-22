@@ -41,6 +41,7 @@ vi.mock('@/hooks/useApps', () => ({
       id: 'app-1',
       name: 'Roadmap Tool',
       slug: 'roadmap-tool',
+      item_key: 'ROADMAPTOO',
       description: 'Product feedback',
       logo_url: null,
       platforms: ['web'],
@@ -56,7 +57,7 @@ vi.mock('@/hooks/useApps', () => ({
 
 vi.mock('@/hooks/useFeedback', () => ({
   useFeedback: () => ({
-    data: [],
+    data: [{ id: 'f1', number: 42, type: 'feature', title: 'T', description: 'D', status: 'open', vote_count: 0, created_at: '2026-01-01T00:00:00.000Z', platform: null, version: null }],
     isLoading: false,
     error: null,
     fetchStatus: 'idle',
@@ -80,7 +81,9 @@ vi.mock('@/lib/roadmapPreferences', () => ({
 }));
 
 vi.mock('@/components/FeedbackCard', () => ({
-  FeedbackCard: () => null,
+  FeedbackCard: ({ appKey, item }: { appKey: string; item: { number: number } }) => (
+    <div data-testid="feedback-card" data-app-key={appKey}>{appKey}-{item.number}</div>
+  ),
 }));
 
 vi.mock('@/components/feedback/FeedbackStateSections', () => ({
@@ -95,6 +98,19 @@ vi.mock('@/components/CreateFeedbackDialog', () => ({
 import AppFeedback from './AppFeedback';
 
 describe('AppFeedback page', () => {
+  it('passes the app item key to feedback cards', () => {
+    render(
+      <MemoryRouter initialEntries={['/app/roadmap-tool']}>
+        <Routes>
+          <Route path="/app/:slug" element={<AppFeedback />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('feedback-card')).toHaveTextContent('ROADMAPTOO-42');
+  });
+
+
   it('renders a single new feedback action and removes separate feature and bug buttons', async () => {
     render(
       <MemoryRouter initialEntries={['/app/roadmap-tool']}>

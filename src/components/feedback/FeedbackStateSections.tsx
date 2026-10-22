@@ -16,6 +16,7 @@ interface FeedbackStateSectionsProps {
   slug: string;
   items: FeedbackItem[];
   appSlug: string;
+  appKey: string;
   votedItems: Set<string>;
   onVote: (id: string) => void;
 }
@@ -39,6 +40,7 @@ export function FeedbackStateSections({
   slug,
   items,
   appSlug,
+  appKey,
   votedItems,
   onVote,
 }: FeedbackStateSectionsProps) {
@@ -89,6 +91,7 @@ export function FeedbackStateSections({
                       key={item.id}
                       item={item}
                       appSlug={appSlug}
+                      appKey={appKey}
                       voted={votedItems.has(item.id)}
                       onVote={onVote}
                     />
