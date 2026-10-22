@@ -181,6 +181,10 @@ open feedback for duplicates or already-fixed bugs, update item statuses, and
 post admin comments (both with the same submitter/commenter notifications as
 the admin UI).
 
+Feedback items are identified by their key (e.g. `INTAKE-42`, the app's
+`item_key` plus the item number); tools that take an item accept the key or
+the item's UUID, and every returned feedback item includes its `key`.
+
 - Deploy it together with the other functions: `npm run supabase:functions:deploy`
   (no extra secrets needed; it uses the built-in Supabase env).
 - As admin, create an API token under **Admin > API Tokens**. The token is

@@ -1,6 +1,8 @@
 // Pure tool handlers for the mcp-server edge function. No Deno APIs here:
 // this module is unit-tested under Node via Vitest.
 
+import { formatItemKey, isUuid, parseItemKey } from '../_shared/itemKey.ts';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type SupabaseLike = { from(table: string): any };
 
@@ -11,7 +13,7 @@ export type ToolOutcome =
 // Excludes submitter_email / notify_on_updates on purpose: agent-facing
 // output must not contain PII even though the columns are publicly readable.
 export const FEEDBACK_COLUMNS =
-  'id, type, title, description, status, vote_count, platform, version, created_at';
+  'id, number, type, title, description, status, vote_count, platform, version, created_at';
 
 function throwIfError(error: { message?: string } | Error | null): void {
   if (error) {
@@ -22,10 +24,10 @@ function throwIfError(error: { message?: string } | Error | null): void {
 async function findAppBySlug(
   client: SupabaseLike,
   appSlug: string
-): Promise<{ app: { id: string; name: string; slug: string } | null }> {
+): Promise<{ app: { id: string; name: string; slug: string; item_key: string } | null }> {
   const { data, error } = await client
     .from('apps')
-    .select('id, name, slug')
+    .select('id, name, slug, item_key')
     .eq('slug', appSlug)
     .maybeSingle();
   throwIfError(error);
@@ -35,10 +37,71 @@ async function findAppBySlug(
 const UNKNOWN_APP = (slug: string) =>
   `No app with slug '${slug}'. Use list_apps to see valid slugs.`;
 
+const UNKNOWN_FEEDBACK = (ref: string) =>
+  `No feedback item '${ref}'. Use list_feedback to find valid keys.`;
+
+/**
+ * Resolves an agent-supplied feedback reference - an item key such as
+ * 'INTAKE-42' (case-insensitive, surrounding whitespace ignored) or a UUID -
+ * to the feedback id and its canonical key.
+ */
+export async function resolveFeedbackRef(
+  client: SupabaseLike,
+  ref: string
+): Promise<{ ok: true; id: string; key: string } | { ok: false; error: string }> {
+  const trimmed = ref.trim();
+
+  if (isUuid(trimmed)) {
+    const { data: feedback, error } = await client
+      .from('feedback')
+      .select('id, number, app_id')
+      .eq('id', trimmed)
+      .maybeSingle();
+    throwIfError(error);
+    if (!feedback) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
+
+    const { data: app, error: appError } = await client
+      .from('apps')
+      .select('id, item_key')
+      .eq('id', feedback.app_id)
+      .maybeSingle();
+    throwIfError(appError);
+    if (!app) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
+
+    return { ok: true, id: feedback.id, key: formatItemKey(app.item_key, feedback.number) };
+  }
+
+  const parsed = parseItemKey(trimmed);
+  if (!parsed) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
+
+  const { data: app, error: appError } = await client
+    .from('apps')
+    .select('id, item_key')
+    .eq('item_key', parsed.appKey)
+    .maybeSingle();
+  throwIfError(appError);
+  if (!app) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
+
+  const { data: feedback, error } = await client
+    .from('feedback')
+    .select('id, number, app_id')
+    .eq('app_id', app.id)
+    .eq('number', parsed.number)
+    .maybeSingle();
+  throwIfError(error);
+  if (!feedback) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
+
+  return { ok: true, id: feedback.id, key: formatItemKey(app.item_key, feedback.number) };
+}
+
+function withKey<T extends { number: number }>(appKey: string, item: T): T & { key: string } {
+  return { ...item, key: formatItemKey(appKey, item.number) };
+}
+
 export async function listApps(client: SupabaseLike): Promise<ToolOutcome> {
   const { data, error } = await client
     .from('apps')
-    .select('id, name, slug, description, platforms')
+    .select('id, name, slug, item_key, description, platforms')
     .order('name');
   throwIfError(error);
   return { ok: true, data: { apps: data ?? [] } };
@@ -61,7 +124,8 @@ export async function listFeedback(
 
   const { data, error } = await query.order('created_at', { ascending: false });
   throwIfError(error);
-  return { ok: true, data: { app, feedback: data ?? [] } };
+  const feedback = (data ?? []).map((item: { number: number }) => withKey(app.item_key, item));
+  return { ok: true, data: { app, feedback } };
 }
 
 export async function getVersionPlan(
@@ -110,7 +174,10 @@ export async function getVersionPlan(
     if (existing) {
       existing.target_platforms.push(target.platform);
     } else {
-      itemsById.set(target.feedback.id, { ...target.feedback, target_platforms: [target.platform] });
+      itemsById.set(target.feedback.id, {
+        ...withKey(app.item_key, target.feedback),
+        target_platforms: [target.platform],
+      });
     }
   }
 
@@ -132,20 +199,19 @@ export async function getVersionPlan(
 
 export async function getFeedback(
   client: SupabaseLike,
-  feedbackId: string
+  ref: string
 ): Promise<ToolOutcome> {
+  const item = await resolveFeedbackRef(client, ref);
+  if (!item.ok) return item;
+  const feedbackId = item.id;
+
   const { data: feedback, error } = await client
     .from('feedback')
     .select(FEEDBACK_COLUMNS)
     .eq('id', feedbackId)
     .maybeSingle();
   throwIfError(error);
-  if (!feedback) {
-    return {
-      ok: false,
-      error: `No feedback item with id '${feedbackId}'. Use list_feedback to find valid ids.`,
-    };
-  }
+  if (!feedback) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
 
   const { data: comments, error: commentsError } = await client
     .from('comments')
@@ -163,7 +229,7 @@ export async function getFeedback(
   return {
     ok: true,
     data: {
-      feedback,
+      feedback: { ...feedback, key: item.key },
       comments: comments ?? [],
       attachments: (attachments ?? []).map((row: { image_url: string }) => row.image_url),
     },
@@ -174,10 +240,14 @@ export type NotificationSender = (payload: unknown) => Promise<void>;
 
 export async function updateStatus(
   serviceClient: SupabaseLike,
-  feedbackId: string,
+  ref: string,
   status: string,
   notify: NotificationSender
 ): Promise<ToolOutcome> {
+  const item = await resolveFeedbackRef(serviceClient, ref);
+  if (!item.ok) return item;
+  const feedbackId = item.id;
+
   const { data: updated, error } = await serviceClient
     .from('feedback')
     .update({ status })
@@ -185,18 +255,13 @@ export async function updateStatus(
     .select(`${FEEDBACK_COLUMNS}, app_id, submitter_email, notify_on_updates`)
     .maybeSingle();
   throwIfError(error);
-  if (!updated) {
-    return {
-      ok: false,
-      error: `No feedback item with id '${feedbackId}'. Use list_feedback to find valid ids.`,
-    };
-  }
+  if (!updated) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
 
   let notified = false;
   if (updated.submitter_email && updated.notify_on_updates) {
     const { data: app, error: appError } = await serviceClient
       .from('apps')
-      .select('id, name, slug')
+      .select('id, name, slug, item_key')
       .eq('id', updated.app_id)
       .maybeSingle();
     throwIfError(appError);
@@ -206,6 +271,7 @@ export async function updateStatus(
           type: 'status_change',
           feedback: {
             id: updated.id,
+            number: updated.number,
             type: updated.type,
             title: updated.title,
             status: updated.status,
@@ -214,6 +280,7 @@ export async function updateStatus(
           },
           appName: app.name,
           appSlug: app.slug,
+          appKey: app.item_key,
         });
         notified = true;
       } catch (_err) {
@@ -224,14 +291,14 @@ export async function updateStatus(
   }
 
   const { app_id: _appId, submitter_email: _email, notify_on_updates: _optIn, ...publicFields } = updated;
-  return { ok: true, data: { feedback: publicFields, notified } };
+  return { ok: true, data: { feedback: { ...publicFields, key: item.key }, notified } };
 }
 
 const MAX_COMMENT_LENGTH = 5000;
 
 export async function addComment(
   serviceClient: SupabaseLike,
-  feedbackId: string,
+  ref: string,
   content: string,
   notify: NotificationSender
 ): Promise<ToolOutcome> {
@@ -243,18 +310,17 @@ export async function addComment(
     return { ok: false, error: `Comment too long (max ${MAX_COMMENT_LENGTH} characters).` };
   }
 
+  const item = await resolveFeedbackRef(serviceClient, ref);
+  if (!item.ok) return item;
+  const feedbackId = item.id;
+
   const { data: feedback, error: feedbackError } = await serviceClient
     .from('feedback')
-    .select('id, type, title, submitter_email, notify_on_updates, app_id')
+    .select('id, number, type, title, submitter_email, notify_on_updates, app_id')
     .eq('id', feedbackId)
     .maybeSingle();
   throwIfError(feedbackError);
-  if (!feedback) {
-    return {
-      ok: false,
-      error: `No feedback item with id '${feedbackId}'. Use list_feedback to find valid ids.`,
-    };
-  }
+  if (!feedback) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
 
   const { data: created, error: insertError } = await serviceClient
     .from('comments')
@@ -265,7 +331,7 @@ export async function addComment(
 
   const { data: app, error: appError } = await serviceClient
     .from('apps')
-    .select('id, name, slug')
+    .select('id, name, slug, item_key')
     .eq('id', feedback.app_id)
     .maybeSingle();
   throwIfError(appError);
@@ -276,6 +342,7 @@ export async function addComment(
       type: 'admin_comment',
       feedback: {
         id: feedback.id,
+        number: feedback.number,
         type: feedback.type,
         title: feedback.title,
         submitter_email: feedback.submitter_email,
@@ -283,6 +350,7 @@ export async function addComment(
       },
       appName: app.name,
       appSlug: app.slug,
+      appKey: app.item_key,
       comment: trimmed,
     });
   }
@@ -307,9 +375,10 @@ export async function addComment(
     for (const email of uniqueEmails) {
       payloads.push({
         type: 'admin_reply_to_comment',
-        feedback: { id: feedback.id, type: feedback.type, title: feedback.title },
+        feedback: { id: feedback.id, number: feedback.number, type: feedback.type, title: feedback.title },
         appName: app.name,
         appSlug: app.slug,
+        appKey: app.item_key,
         comment: trimmed,
         commenterEmail: email,
       });
@@ -370,7 +439,7 @@ export function resolveTargetPlatforms(input: {
  */
 export async function setVersion(
   serviceClient: SupabaseLike,
-  feedbackId: string,
+  ref: string,
   version: string,
   platforms?: string[]
 ): Promise<ToolOutcome> {
@@ -379,18 +448,17 @@ export async function setVersion(
     return { ok: false, error: 'Version must not be empty.' };
   }
 
+  const item = await resolveFeedbackRef(serviceClient, ref);
+  if (!item.ok) return item;
+  const feedbackId = item.id;
+
   const { data: feedback, error: feedbackError } = await serviceClient
     .from('feedback')
     .select('id, type, platform, app_id')
     .eq('id', feedbackId)
     .maybeSingle();
   throwIfError(feedbackError);
-  if (!feedback) {
-    return {
-      ok: false,
-      error: `No feedback item with id '${feedbackId}'. Use list_feedback to find valid ids.`,
-    };
-  }
+  if (!feedback) return { ok: false, error: UNKNOWN_FEEDBACK(ref) };
 
   const { data: app, error: appError } = await serviceClient
     .from('apps')
@@ -484,7 +552,7 @@ export async function setVersion(
   return {
     ok: true,
     data: {
-      feedback: updated,
+      feedback: updated ? { ...updated, key: item.key } : updated,
       release: { semver: group.semver },
       target_platforms: resolved.platforms,
     },
