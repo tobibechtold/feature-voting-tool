@@ -38,6 +38,7 @@ function makeItem(partial: Partial<FeedbackItem> & Pick<FeedbackItem, 'id' | 'ti
     platform: partial.platform || null,
     submitter_email: null,
     notify_on_updates: false,
+    number: partial.number ?? 1,
     roadmap_position: partial.roadmap_position ?? null,
   };
 }

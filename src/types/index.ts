@@ -10,6 +10,7 @@ export interface App {
   logo_url: string | null;
   platforms: string[];
   created_at: string;
+  item_key: string;
 }
 
 export interface FeedbackItem {
@@ -26,6 +27,7 @@ export interface FeedbackItem {
   version?: string | null;
   platform?: string | null;
   roadmap_position?: number | null;
+  number: number;
 }
 
 export interface Vote {
