@@ -158,6 +158,7 @@ export default function Roadmap() {
           <RoadmapBoard
             items={filteredFeedback}
             appSlug={slug!}
+            appKey={app.item_key}
             isAdmin={isAdmin}
             votedItems={votedItems || new Set()}
             onVote={handleVote}

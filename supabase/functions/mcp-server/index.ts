@@ -59,7 +59,7 @@ function buildServer(
   server.registerTool(
     "list_apps",
     {
-      description: "List all apps in the feedback tool with their slugs and platforms. Use the slug as the 'app' argument for other tools.",
+      description: "List all apps in the feedback tool with their slugs, item_key and platforms. Use the slug as the 'app' argument for other tools; feedback items are keyed '<item_key>-<number>' (e.g. 'INTAKE-42').",
       inputSchema: {},
     },
     async () => toToolResult(await listApps(dataClient))
@@ -95,9 +95,9 @@ function buildServer(
   server.registerTool(
     "get_feedback",
     {
-      description: "Get one feedback item by id, including its comments and attachment image URLs.",
+      description: "Get one feedback item by key (e.g. 'INTAKE-42') or UUID, including its comments and attachment image URLs.",
       inputSchema: {
-        id: z.string().uuid().describe("Feedback item id"),
+        id: z.string().describe("Feedback item key (e.g. 'INTAKE-42') or UUID"),
       },
     },
     async ({ id }: { id: string }) => toToolResult(await getFeedback(dataClient, id))
@@ -108,7 +108,7 @@ function buildServer(
     {
       description: "Change the status of a feedback item. Sends the same status-change email to opted-in submitters as the admin UI. Returns the updated item and whether a notification was sent.",
       inputSchema: {
-        id: z.string().uuid().describe("Feedback item id"),
+        id: z.string().describe("Feedback item key (e.g. 'INTAKE-42') or UUID"),
         status: z.enum(FEEDBACK_STATUSES).describe("New status"),
       },
     },
@@ -121,7 +121,7 @@ function buildServer(
     {
       description: "Assign a feedback item to a release version, as the admin UI's release picker does. The release must already exist for the item's app (see get_version_plan). Platforms default to every platform of the app for a feature and to the item's own platform for a bug; pass 'platforms' to override (app platform names or 'all'). Does not change the status and sends no e-mail.",
       inputSchema: {
-        id: z.string().uuid().describe("Feedback item id"),
+        id: z.string().describe("Feedback item key (e.g. 'INTAKE-42') or UUID"),
         version: z.string().describe("Semver of an existing release, e.g. '1.3.0'"),
         platforms: z.array(z.string()).optional().describe("Target platforms, e.g. ['android'] or ['all']; omit for the default"),
       },
@@ -135,7 +135,7 @@ function buildServer(
     {
       description: "Post an admin comment on a feedback item (e.g. explain a fix or ask the reporter a question). Sends the same emails to opted-in submitters/commenters as admin comments from the UI.",
       inputSchema: {
-        id: z.string().uuid().describe("Feedback item id"),
+        id: z.string().describe("Feedback item key (e.g. 'INTAKE-42') or UUID"),
         content: z.string().describe("Comment text (max 5000 characters)"),
       },
     },

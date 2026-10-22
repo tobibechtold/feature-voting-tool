@@ -46,6 +46,7 @@ import { FeedbackStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { de, enUS } from 'date-fns/locale';
 import { normalizePlatformLabel } from '@/lib/platforms';
+import { ItemKeyLabel } from '@/components/ItemKeyLabel';
 
 export default function FeedbackDetail() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
@@ -56,10 +57,10 @@ export default function FeedbackDetail() {
   const { executeRecaptcha } = useGoogleReCaptcha();
   
   const { data: app, isLoading: appLoading, error: appError, fetchStatus: appFetchStatus, refetch: refetchApp } = useAppData(slug);
-  const { data: item, isLoading: itemLoading, error: itemError, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id);
-  const { data: comments, isLoading: commentsLoading, error: commentsError, fetchStatus: commentsFetchStatus, refetch: refetchComments } = useComments(id);
-  const { data: attachments } = useAttachments(id);
-  const { data: releaseTargets = [] } = useFeedbackReleaseTargets(id);
+  const { data: item, isLoading: itemLoading, error: itemError, status: itemStatus, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id, app);
+  const { data: comments, isLoading: commentsLoading, error: commentsError, fetchStatus: commentsFetchStatus, refetch: refetchComments } = useComments(item?.id);
+  const { data: attachments } = useAttachments(item?.id);
+  const { data: releaseTargets = [] } = useFeedbackReleaseTargets(item?.id);
   const { data: votedItems } = useVotedItems();
   const vote = useVote();
   const updateStatus = useUpdateFeedbackStatus();
@@ -105,6 +106,7 @@ export default function FeedbackDetail() {
       status,
       appName: app.name,
       appSlug: app.slug,
+      appKey: app.item_key,
     });
   };
 
@@ -117,6 +119,7 @@ export default function FeedbackDetail() {
       is_admin: isAdmin,
       appName: app.name,
       appSlug: app.slug,
+      appKey: app.item_key,
     });
     setNewComment('');
   };
@@ -215,7 +218,8 @@ export default function FeedbackDetail() {
   // Determine loading/error states
   const isPaused = appFetchStatus === 'paused' || itemFetchStatus === 'paused';
   const hasError = appError || itemError;
-  const isLoadingWithNoData = (appLoading || itemLoading) && !app && !item;
+  const itemPending = itemStatus === 'pending' && !itemError && !!id;
+  const isLoadingWithNoData = !item && ((appLoading || itemLoading) && !app || itemPending);
 
   // Handle offline/paused state
   if (isPaused) {
@@ -350,6 +354,7 @@ export default function FeedbackDetail() {
                     )}
                   </div>
                     
+                  {app && <ItemKeyLabel appKey={app.item_key} number={item.number} className="block mb-1" />}
                   <h1 className="text-2xl font-bold mb-4">{item.title}</h1>
                     
                   <p className="text-muted-foreground whitespace-pre-wrap">
@@ -679,9 +684,9 @@ export default function FeedbackDetail() {
             <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                if (deleteCommentId && id) {
+                if (deleteCommentId && item) {
                   try {
-                    await deleteComment.mutateAsync({ commentId: deleteCommentId, feedbackId: id });
+                    await deleteComment.mutateAsync({ commentId: deleteCommentId, feedbackId: item.id });
                     setDeleteCommentId(null);
                     toast({ title: t('commentDeleted') });
                   } catch (error) {

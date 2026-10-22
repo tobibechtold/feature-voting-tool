@@ -38,6 +38,7 @@ function makeItem(partial: Partial<FeedbackItem> & Pick<FeedbackItem, 'id' | 'ti
     platform: partial.platform || null,
     submitter_email: null,
     notify_on_updates: false,
+    number: partial.number ?? 1,
     roadmap_position: partial.roadmap_position ?? null,
   };
 }
@@ -56,6 +57,7 @@ describe('FeedbackStateSections', () => {
           makeItem({ id: 'open-1', title: 'Open item', status: 'open' }),
         ]}
         appSlug="roadmap-tool"
+        appKey="ROADMAPTOO"
         votedItems={new Set()}
         onVote={vi.fn()}
       />
@@ -76,6 +78,7 @@ describe('FeedbackStateSections', () => {
       slug: 'roadmap-tool',
       items: [makeItem({ id: 'planned-1', title: 'Planned item', status: 'planned' })],
       appSlug: 'roadmap-tool',
+      appKey: 'ROADMAPTOO',
       votedItems: new Set<string>(),
       onVote: vi.fn(),
     };

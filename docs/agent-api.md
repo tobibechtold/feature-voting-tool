@@ -18,11 +18,23 @@ Claude Code (run inside any project that should use the data):
 
 claude.ai / cloud agents: add a custom connector with the same URL and header.
 
+## Item keys
+
+Every feedback item has a Jira-style key `<item_key>-<number>`, e.g.
+`INTAKE-42`: the app's `item_key` (see `list_apps`) plus a per-app number
+that never changes. Every feedback object the tools return carries `key` and
+`number`. The `id` argument of `get_feedback`, `update_status`, `set_version`
+and `add_comment` accepts either the key (case-insensitive, surrounding
+whitespace ignored, e.g. `intake-42`) or the item's UUID. An unknown or
+malformed reference returns `No feedback item '<ref>'. Use list_feedback to
+find valid keys.`
+
 ## Tools
 
 ### list_apps
-No arguments. Returns all apps: `id`, `name`, `slug`, `description`,
-`platforms`. Use `slug` as the `app` argument everywhere else.
+No arguments. Returns all apps: `id`, `name`, `slug`, `item_key`,
+`description`, `platforms`. Use `slug` as the `app` argument everywhere else;
+`item_key` is the prefix of the app's item keys.
 
 ### get_version_plan
 Arguments: `app` (slug), `version` (semver, e.g. `1.3.0`).
@@ -37,18 +49,20 @@ Typical use: "Implement everything planned for 1.3.0" — the agent calls
 ### list_feedback
 Arguments: `app` (slug), optional `status`
 (`open|planned|progress|completed|wont_do`), optional `type` (`feature|bug`).
-Returns matching items with full descriptions, newest first.
+Returns matching items (each with its `key`) with full descriptions, newest
+first.
 
 Typical use: scan `status=open` items for duplicates of each other or for
 bugs that are already fixed in the codebase.
 
 ### get_feedback
-Arguments: `id` (uuid). Returns one item plus its comments
+Arguments: `id` (item key such as `INTAKE-42`, or uuid). Returns one item
+(with `key`) plus its comments
 (`content`, `is_admin`, `created_at`) and attachment image URLs.
 This is also how agents read a ticket's comment thread.
 
 ### update_status
-Arguments: `id` (uuid), `status`
+Arguments: `id` (item key or uuid), `status`
 (`open|planned|progress|completed|wont_do`).
 Changes the item's status — e.g. mark a bug `completed` after fixing it, or
 move an implemented feature out of `progress`. If the submitter opted into
@@ -56,7 +70,7 @@ notifications, the same status-change email is sent as when an admin changes
 the status in the UI; the response includes `notified` accordingly.
 
 ### set_version
-Arguments: `id` (feedback uuid), `version` (semver of an **existing** release of
+Arguments: `id` (item key or uuid), `version` (semver of an **existing** release of
 the item's app), optional `platforms` (array of the app's platform names or
 `all`).
 Assigns the item to the release the way the admin UI's release picker does:
@@ -69,7 +83,7 @@ never by an agent. Does not change the status and sends no e-mail; combine
 with `update_status` for "shipped in 1.3.0".
 
 ### add_comment
-Arguments: `id` (uuid), `content` (max 5000 chars).
+Arguments: `id` (item key or uuid), `content` (max 5000 chars).
 Posts an admin comment on the item — e.g. explain what was fixed, or ask the
 reporter for more detail. Opted-in submitters and commenters receive the same
 emails as for admin comments written in the UI; the response includes

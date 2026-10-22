@@ -8,12 +8,15 @@ import { VoteButton } from '@/components/VoteButton';
 import { useCommentCount } from '@/hooks/useComments';
 import { useTranslation } from '@/hooks/useTranslation';
 import { normalizePlatformLabel } from '@/lib/platforms';
+import { formatItemKey } from '@/lib/itemKey';
+import { ItemKeyLabel } from '@/components/ItemKeyLabel';
 import { cn } from '@/lib/utils';
 import type { FeedbackItem } from '@/types';
 
 interface RoadmapCardProps {
   item: FeedbackItem;
   appSlug: string;
+  appKey: string;
   isAdmin: boolean;
   voted: boolean;
   onVote: (id: string) => void;
@@ -22,6 +25,7 @@ interface RoadmapCardProps {
 export function RoadmapCard({
   item,
   appSlug,
+  appKey,
   isAdmin,
   voted,
   onVote,
@@ -102,7 +106,8 @@ export function RoadmapCard({
               )}
             </div>
 
-            <Link to={`/app/${appSlug}/${item.id}`} className="block">
+            <Link to={`/app/${appSlug}/${formatItemKey(appKey, item.number)}`} className="block">
+              <ItemKeyLabel appKey={appKey} number={item.number} className="block" />
               <div className="font-semibold text-foreground transition-colors hover:text-primary line-clamp-1">
                 {item.title}
               </div>

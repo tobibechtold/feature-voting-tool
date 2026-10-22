@@ -6,12 +6,14 @@ interface NotificationPayload {
     id: string;
     type: 'feature' | 'bug';
     title: string;
+    number?: number;
     status?: string;
     submitter_email?: string | null;
     notify_on_updates?: boolean;
   };
   appName: string;
   appSlug: string;
+  appKey?: string;
   comment?: string;
   commenterEmail?: string;
 }

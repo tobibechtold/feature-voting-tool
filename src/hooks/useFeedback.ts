@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, publicSupabase } from '@/integrations/supabase/client';
-import { FeedbackItem, FeedbackStatus, FeedbackType } from '@/types';
+import { App, FeedbackItem, FeedbackStatus, FeedbackType } from '@/types';
+import { resolveFeedbackLookup } from '@/lib/itemKey';
 import { getVoterId } from '@/lib/mockData';
 import { getCachedData, setCachedData, promiseWithTimeout } from '@/lib/queryCache';
 import { sendNotification } from '@/lib/notificationService';
@@ -98,29 +99,39 @@ export function useFeedback(appId: string | undefined) {
   });
 }
 
-export function useFeedbackItem(id: string | undefined) {
+export function useFeedbackItem(
+  idOrKey: string | undefined,
+  app: Pick<App, 'id' | 'item_key'> | null | undefined
+) {
+  const lookup = resolveFeedbackLookup(idOrKey, app);
+  // Once the app has resolved (loaded or confirmed missing), an unresolvable
+  // key is "not found" (null). While the app is loading, stay disabled.
+  const appResolved = app !== undefined;
+
   return useQuery({
-    queryKey: ['feedback', 'item', id],
+    queryKey: ['feedback', 'item', lookup],
     queryFn: async () => {
-      if (!id) return null;
-      
+      if (lookup.by === 'none') return null;
+
       const controller = new AbortController();
-      
+
       const fetchItem = async () => {
-        const { data, error } = await publicSupabase
-          .from('feedback')
-          .select('*')
-          .eq('id', id)
+        let query = publicSupabase.from('feedback').select('*');
+        query =
+          lookup.by === 'id'
+            ? query.eq('id', lookup.id)
+            : query.eq('app_id', lookup.appId).eq('number', lookup.number);
+        const { data, error } = await query
           .abortSignal(controller.signal)
           .maybeSingle();
-        
+
         if (error) throw error;
         return data as FeedbackItem | null;
       };
 
       return promiseWithTimeout(fetchItem(), REQUEST_TIMEOUT, controller);
     },
-    enabled: !!id,
+    enabled: lookup.by !== 'none' || (!!idOrKey && appResolved),
   });
 }
 
@@ -134,6 +145,7 @@ interface CreateFeedbackInput {
   notify_on_updates?: boolean;
   appName?: string;
   appSlug?: string;
+  appKey?: string;
   screenshots?: File[];
 }
 
@@ -142,7 +154,7 @@ export function useCreateFeedback() {
   
   return useMutation({
     mutationFn: async (input: CreateFeedbackInput) => {
-      const { appName, appSlug, screenshots, ...rest } = input;
+      const { appName, appSlug, appKey, screenshots, ...rest } = input;
       const insertData = { 
         ...rest, 
         platform: rest.type === 'bug' ? (rest.platform || null) : null,
@@ -207,11 +219,13 @@ export function useCreateFeedback() {
             id: feedbackData.id,
             type: feedbackData.type,
             title: feedbackData.title,
+            number: feedbackData.number,
             submitter_email: feedbackData.submitter_email,
             notify_on_updates: feedbackData.notify_on_updates,
           },
           appName,
           appSlug,
+          appKey,
         });
       }
 
@@ -227,11 +241,12 @@ export function useUpdateFeedbackStatus() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, status, appName, appSlug }: { 
+    mutationFn: async ({ id, status, appName, appSlug, appKey }: { 
       id: string; 
       status: FeedbackStatus;
       appName?: string;
       appSlug?: string;
+      appKey?: string;
     }) => {
       const { data, error } = await supabase
         .from('feedback')
@@ -251,12 +266,14 @@ export function useUpdateFeedbackStatus() {
             id: feedbackData.id,
             type: feedbackData.type,
             title: feedbackData.title,
+            number: feedbackData.number,
             status: feedbackData.status,
             submitter_email: feedbackData.submitter_email,
             notify_on_updates: feedbackData.notify_on_updates,
           },
           appName,
           appSlug,
+          appKey,
         });
       }
       

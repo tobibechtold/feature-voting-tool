@@ -16,6 +16,7 @@ function makeItem(partial: Partial<FeedbackItem> & Pick<FeedbackItem, 'id'>): Fe
     platform: partial.platform || null,
     submitter_email: null,
     notify_on_updates: false,
+    number: partial.number ?? 1,
   };
 }
 
@@ -130,5 +131,72 @@ describe('feedback overview helpers', () => {
   it('returns unique version options sorted from highest to lowest', () => {
     const options = getVersionOptions(items);
     expect(options).toEqual(['9.0.0', '2.0.0', '1.2.0']);
+  });
+
+  describe('search', () => {
+    const searchItems: FeedbackItem[] = [
+      makeItem({ id: 'a', number: 1, title: 'Dark mode' }),
+      makeItem({ id: 'b', number: 2, title: 'App Crash', description: 'on start' }),
+      makeItem({ id: 'c', number: 3, title: 'Export', description: 'Fails with CRASH report' }),
+    ];
+    const search = (searchQuery: string) =>
+      filterAndSortFeedback(searchItems, {
+        sortMode: 'popularity',
+        filterType: 'all',
+        filterStatuses: [],
+        versionFilter: 'all',
+        searchQuery,
+        appKey: 'INTAKE',
+      }).map((item) => item.id);
+
+    it.each(['INTAKE-2', 'intake-2', ' intake-2 ', '2', '#2'])('matches item 2 by key or number: %s', (query) => {
+      expect(search(query)).toEqual(['b']);
+    });
+
+    it('does not match by number for another app key, falling back to text', () => {
+      expect(search('FOO-2')).toEqual([]);
+    });
+
+    it('falls back to text search for key-shaped queries with another prefix', () => {
+      const withText = [
+        makeItem({ id: 'x', number: 14, title: 'Crash on Android-14' }),
+        makeItem({ id: 'y', number: 15, title: 'Other' }),
+      ];
+      const result = filterAndSortFeedback(withText, {
+        sortMode: 'popularity',
+        filterType: 'all',
+        filterStatuses: [],
+        versionFilter: 'all',
+        searchQuery: 'android-14',
+        appKey: 'INTAKE',
+      }).map((item) => item.id);
+      expect(result).toEqual(['x']);
+    });
+
+    it('matches numeric queries by number or text', () => {
+      const withText = [
+        makeItem({ id: 'n', number: 2024, title: 'Plain' }),
+        makeItem({ id: 't', number: 5, title: 'Release 2024 plan' }),
+        makeItem({ id: 'z', number: 6, title: 'Nope' }),
+      ];
+      const result = filterAndSortFeedback(withText, {
+        sortMode: 'popularity',
+        filterType: 'all',
+        filterStatuses: [],
+        versionFilter: 'all',
+        searchQuery: '2024',
+        appKey: 'INTAKE',
+      }).map((item) => item.id).sort();
+      expect(result).toEqual(['n', 't']);
+    });
+
+    it('matches title and description case-insensitively', () => {
+      expect(search('crash').sort()).toEqual(['b', 'c']);
+    });
+
+    it('does not filter on empty or whitespace queries', () => {
+      expect(search('')).toHaveLength(3);
+      expect(search('   ')).toHaveLength(3);
+    });
   });
 });

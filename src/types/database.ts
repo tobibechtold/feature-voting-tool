@@ -18,6 +18,8 @@ export type Database = {
           logo_url: string | null
           platforms: string[]
           created_at: string
+          item_key: string
+          next_item_number: number
         }
         Insert: {
           id?: string
@@ -27,6 +29,8 @@ export type Database = {
           logo_url?: string | null
           platforms?: string[]
           created_at?: string
+          item_key?: string
+          next_item_number?: number
         }
         Update: {
           id?: string
@@ -36,6 +40,8 @@ export type Database = {
           logo_url?: string | null
           platforms?: string[]
           created_at?: string
+          item_key?: string
+          next_item_number?: number
         }
       }
       feedback: {
@@ -53,6 +59,7 @@ export type Database = {
           version: string | null
           platform: string | null
           roadmap_position: number | null
+          number: number
         }
         Insert: {
           id?: string
@@ -68,6 +75,7 @@ export type Database = {
           version?: string | null
           platform?: string | null
           roadmap_position?: number | null
+          number?: number
         }
         Update: {
           id?: string
@@ -83,6 +91,7 @@ export type Database = {
           version?: string | null
           platform?: string | null
           roadmap_position?: number | null
+          number?: number
         }
       }
       votes: {

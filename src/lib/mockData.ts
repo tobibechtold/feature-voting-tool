@@ -5,6 +5,7 @@ export const mockApps: App[] = [
     id: '1',
     name: 'TaskFlow Pro',
     slug: 'taskflow',
+    item_key: 'TASKFLOW',
     description: 'Project management and task tracking',
     logo_url: null,
     platforms: ['web', 'ios', 'android'],
@@ -14,6 +15,7 @@ export const mockApps: App[] = [
     id: '2',
     name: 'CodeSnap',
     slug: 'codesnap',
+    item_key: 'CODESNAP',
     description: 'Beautiful code screenshots',
     logo_url: null,
     platforms: ['web'],
@@ -23,6 +25,7 @@ export const mockApps: App[] = [
     id: '3',
     name: 'DataViz Studio',
     slug: 'dataviz',
+    item_key: 'DATAVIZ',
     description: 'Data visualization platform',
     logo_url: null,
     platforms: ['web', 'desktop'],
@@ -34,6 +37,7 @@ export const mockFeedback: FeedbackItem[] = [
   {
     id: '1',
     app_id: '1',
+    number: 1,
     type: 'feature',
     title: 'Dark mode support',
     description: 'Add a dark mode option for better viewing in low light conditions.',
@@ -44,6 +48,7 @@ export const mockFeedback: FeedbackItem[] = [
   {
     id: '2',
     app_id: '1',
+    number: 2,
     type: 'bug',
     title: 'Tasks not syncing on mobile',
     description: 'When I create a task on mobile, it does not appear on desktop until I refresh.',
@@ -55,6 +60,7 @@ export const mockFeedback: FeedbackItem[] = [
   {
     id: '3',
     app_id: '1',
+    number: 3,
     type: 'feature',
     title: 'Keyboard shortcuts',
     description: 'Add keyboard shortcuts for common actions like creating tasks and navigation.',
@@ -65,6 +71,7 @@ export const mockFeedback: FeedbackItem[] = [
   {
     id: '4',
     app_id: '1',
+    number: 4,
     type: 'feature',
     title: 'Calendar integration',
     description: 'Sync tasks with Google Calendar and Outlook.',
@@ -75,6 +82,7 @@ export const mockFeedback: FeedbackItem[] = [
   {
     id: '5',
     app_id: '2',
+    number: 1,
     type: 'feature',
     title: 'Export to SVG',
     description: 'Allow exporting code screenshots as SVG for better scaling.',
@@ -85,6 +93,7 @@ export const mockFeedback: FeedbackItem[] = [
   {
     id: '6',
     app_id: '2',
+    number: 2,
     type: 'bug',
     title: 'Syntax highlighting broken for TypeScript',
     description: 'Generic types are not highlighted correctly in TypeScript files.',

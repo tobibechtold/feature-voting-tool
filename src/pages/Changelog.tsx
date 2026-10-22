@@ -17,6 +17,8 @@ import { useApp as useAppData } from '@/hooks/useApps';
 import { useAuth } from '@/hooks/useAuth';
 import { useDeleteReleaseGroup, useReleaseGroups, useUpsertReleasePlatformStatus } from '@/hooks/useReleases';
 import { normalizePlatformLabel } from '@/lib/platforms';
+import { formatItemKey } from '@/lib/itemKey';
+import { ItemKeyLabel } from '@/components/ItemKeyLabel';
 import { cn } from '@/lib/utils';
 
 export default function Changelog() {
@@ -299,7 +301,7 @@ export default function Changelog() {
                         return (
                           <li key={`${group.id}-${feedback.id}`}>
                             <Link
-                              to={`/app/${slug}/${feedback.id}`}
+                              to={`/app/${slug}/${formatItemKey(app.item_key, feedback.number)}`}
                               className="flex flex-col gap-2 group hover:bg-muted/50 -mx-2 px-2 py-2 rounded-md transition-colors"
                             >
                               <div className="flex items-center gap-2 flex-wrap">
@@ -327,6 +329,7 @@ export default function Changelog() {
                                 ))}
                               </div>
                               <span className="text-foreground group-hover:text-primary transition-colors">
+                                <ItemKeyLabel appKey={app.item_key} number={feedback.number} className="mr-2" />
                                 {feedback.title}
                               </span>
                             </Link>

@@ -31,6 +31,7 @@ type MovePayload = {
 interface RoadmapBoardProps {
   items: FeedbackItem[];
   appSlug: string;
+  appKey: string;
   isAdmin: boolean;
   votedItems: Set<string>;
   onVote: (feedbackId: string) => void;
@@ -182,6 +183,7 @@ function projectRoadmapDrag(
 export function RoadmapBoard({
   items,
   appSlug,
+  appKey,
   isAdmin,
   votedItems,
   onVote,
@@ -391,6 +393,7 @@ export function RoadmapBoard({
             label={getStatusLabel(section.status)}
             items={section.items}
             appSlug={appSlug}
+            appKey={appKey}
             isAdmin={isAdmin}
             votedItems={votedItems}
             onVote={onVote}
