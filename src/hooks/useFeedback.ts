@@ -145,6 +145,7 @@ interface CreateFeedbackInput {
   notify_on_updates?: boolean;
   appName?: string;
   appSlug?: string;
+  appKey?: string;
   screenshots?: File[];
 }
 
@@ -153,7 +154,7 @@ export function useCreateFeedback() {
   
   return useMutation({
     mutationFn: async (input: CreateFeedbackInput) => {
-      const { appName, appSlug, screenshots, ...rest } = input;
+      const { appName, appSlug, appKey, screenshots, ...rest } = input;
       const insertData = { 
         ...rest, 
         platform: rest.type === 'bug' ? (rest.platform || null) : null,
@@ -218,11 +219,13 @@ export function useCreateFeedback() {
             id: feedbackData.id,
             type: feedbackData.type,
             title: feedbackData.title,
+            number: feedbackData.number,
             submitter_email: feedbackData.submitter_email,
             notify_on_updates: feedbackData.notify_on_updates,
           },
           appName,
           appSlug,
+          appKey,
         });
       }
 
@@ -238,11 +241,12 @@ export function useUpdateFeedbackStatus() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, status, appName, appSlug }: { 
+    mutationFn: async ({ id, status, appName, appSlug, appKey }: { 
       id: string; 
       status: FeedbackStatus;
       appName?: string;
       appSlug?: string;
+      appKey?: string;
     }) => {
       const { data, error } = await supabase
         .from('feedback')
@@ -262,12 +266,14 @@ export function useUpdateFeedbackStatus() {
             id: feedbackData.id,
             type: feedbackData.type,
             title: feedbackData.title,
+            number: feedbackData.number,
             status: feedbackData.status,
             submitter_email: feedbackData.submitter_email,
             notify_on_updates: feedbackData.notify_on_updates,
           },
           appName,
           appSlug,
+          appKey,
         });
       }
       

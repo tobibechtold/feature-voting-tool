@@ -108,6 +108,7 @@ export default function AppFeedback() {
       notify_on_updates: data.notifyOnUpdates,
       appName: app.name,
       appSlug: app.slug,
+      appKey: app.item_key,
       screenshots: data.screenshots,
     });
   };

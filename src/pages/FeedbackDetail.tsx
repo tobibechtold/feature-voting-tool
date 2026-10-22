@@ -106,6 +106,7 @@ export default function FeedbackDetail() {
       status,
       appName: app.name,
       appSlug: app.slug,
+      appKey: app.item_key,
     });
   };
 
@@ -118,6 +119,7 @@ export default function FeedbackDetail() {
       is_admin: isAdmin,
       appName: app.name,
       appSlug: app.slug,
+      appKey: app.item_key,
     });
     setNewComment('');
   };

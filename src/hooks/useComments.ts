@@ -61,6 +61,7 @@ interface CreateCommentInput {
   is_admin: boolean;
   appName?: string;
   appSlug?: string;
+  appKey?: string;
 }
 
 export function useCreateComment() {
@@ -68,7 +69,7 @@ export function useCreateComment() {
   
   return useMutation({
     mutationFn: async (input: CreateCommentInput) => {
-      const { appName, appSlug, ...comment } = input;
+      const { appName, appSlug, appKey, ...comment } = input;
       
       const { data, error } = await supabase
         .from('comments')
@@ -97,11 +98,13 @@ export function useCreateComment() {
               id: feedback.id,
               type: feedback.type,
               title: feedback.title,
+              number: feedback.number,
               submitter_email: feedback.submitter_email,
               notify_on_updates: feedback.notify_on_updates,
             },
             appName,
             appSlug,
+            appKey,
             comment: comment.content,
           });
         }
@@ -133,9 +136,11 @@ export function useCreateComment() {
                 id: feedback.id,
                 type: feedback.type,
                 title: feedback.title,
+                number: feedback.number,
               },
               appName,
               appSlug,
+              appKey,
               comment: comment.content,
               commenterEmail: email,
             });
