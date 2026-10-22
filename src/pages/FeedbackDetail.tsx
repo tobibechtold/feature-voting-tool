@@ -57,7 +57,7 @@ export default function FeedbackDetail() {
   const { executeRecaptcha } = useGoogleReCaptcha();
   
   const { data: app, isLoading: appLoading, error: appError, fetchStatus: appFetchStatus, refetch: refetchApp } = useAppData(slug);
-  const { data: item, isLoading: itemLoading, error: itemError, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id, app);
+  const { data: item, isLoading: itemLoading, error: itemError, status: itemStatus, fetchStatus: itemFetchStatus, refetch: refetchItem } = useFeedbackItem(id, app);
   const { data: comments, isLoading: commentsLoading, error: commentsError, fetchStatus: commentsFetchStatus, refetch: refetchComments } = useComments(item?.id);
   const { data: attachments } = useAttachments(item?.id);
   const { data: releaseTargets = [] } = useFeedbackReleaseTargets(item?.id);
@@ -218,7 +218,8 @@ export default function FeedbackDetail() {
   // Determine loading/error states
   const isPaused = appFetchStatus === 'paused' || itemFetchStatus === 'paused';
   const hasError = appError || itemError;
-  const isLoadingWithNoData = (appLoading || itemLoading) && !app && !item;
+  const itemPending = itemStatus === 'pending' && !itemError && !!id;
+  const isLoadingWithNoData = !item && ((appLoading || itemLoading) && !app || itemPending);
 
   // Handle offline/paused state
   if (isPaused) {

@@ -472,7 +472,8 @@ export default function Admin() {
               <Input
                 id="slug"
                 value={formData.slug}
-                onChange={(e) =>
+                onChange={(e) => {
+                  if (!keyTouched) setKeyError(undefined);
                   setFormData((prev) => {
                     const slug = e.target.value.toLowerCase().replace(/\s+/g, '-');
                     return {
@@ -480,8 +481,8 @@ export default function Admin() {
                       slug,
                       item_key: keyTouched ? prev.item_key : deriveItemKey(slug),
                     };
-                  })
-                }
+                  });
+                }}
                 placeholder="my-awesome-app"
                 required
               />

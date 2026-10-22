@@ -144,19 +144,20 @@ export function filterFeedbackByVersion(
 
 function matchesSearch(item: FeedbackItem, query: string, appKey?: string): boolean {
   const parsedKey = parseItemKey(query);
-  if (parsedKey) {
-    return parsedKey.appKey === appKey?.toUpperCase() && item.number === parsedKey.number;
-  }
-
-  if (/^#?\d+$/.test(query)) {
-    return item.number === Number.parseInt(query.replace('#', ''), 10);
+  if (parsedKey && parsedKey.appKey === appKey?.toUpperCase()) {
+    return item.number === parsedKey.number;
   }
 
   const needle = query.toLowerCase();
-  return (
+  const textMatch =
     item.title.toLowerCase().includes(needle) ||
-    (item.description ?? '').toLowerCase().includes(needle)
-  );
+    (item.description ?? '').toLowerCase().includes(needle);
+
+  if (/^#?\d+$/.test(query)) {
+    return item.number === Number.parseInt(query.replace('#', ''), 10) || textMatch;
+  }
+
+  return textMatch;
 }
 
 export function filterAndSortFeedback(items: FeedbackItem[], options: FilterAndSortOptions): FeedbackItem[] {

@@ -153,8 +153,41 @@ describe('feedback overview helpers', () => {
       expect(search(query)).toEqual(['b']);
     });
 
-    it('returns nothing for another app key', () => {
+    it('does not match by number for another app key, falling back to text', () => {
       expect(search('FOO-2')).toEqual([]);
+    });
+
+    it('falls back to text search for key-shaped queries with another prefix', () => {
+      const withText = [
+        makeItem({ id: 'x', number: 14, title: 'Crash on Android-14' }),
+        makeItem({ id: 'y', number: 15, title: 'Other' }),
+      ];
+      const result = filterAndSortFeedback(withText, {
+        sortMode: 'popularity',
+        filterType: 'all',
+        filterStatuses: [],
+        versionFilter: 'all',
+        searchQuery: 'android-14',
+        appKey: 'INTAKE',
+      }).map((item) => item.id);
+      expect(result).toEqual(['x']);
+    });
+
+    it('matches numeric queries by number or text', () => {
+      const withText = [
+        makeItem({ id: 'n', number: 2024, title: 'Plain' }),
+        makeItem({ id: 't', number: 5, title: 'Release 2024 plan' }),
+        makeItem({ id: 'z', number: 6, title: 'Nope' }),
+      ];
+      const result = filterAndSortFeedback(withText, {
+        sortMode: 'popularity',
+        filterType: 'all',
+        filterStatuses: [],
+        versionFilter: 'all',
+        searchQuery: '2024',
+        appKey: 'INTAKE',
+      }).map((item) => item.id).sort();
+      expect(result).toEqual(['n', 't']);
     });
 
     it('matches title and description case-insensitively', () => {
