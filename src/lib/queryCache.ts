@@ -1,7 +1,10 @@
 // localStorage-based cache for React Query initialData
 // Provides instant data on hard reloads while React Query refetches in background
 
-const CACHE_PREFIX = 'query_cache:';
+// Bump CACHE_VERSION whenever cached row shapes change (e.g. new columns), so
+// entries written by an older build are never used as fresh initialData.
+const CACHE_VERSION = 2;
+const CACHE_PREFIX = `query_cache:v${CACHE_VERSION}:`;
 const CACHE_MAX_AGE = 1000 * 60 * 60; // 1 hour max age
 
 interface CacheEntry<T> {
