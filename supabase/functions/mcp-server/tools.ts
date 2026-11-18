@@ -558,3 +558,81 @@ export async function setVersion(
     },
   };
 }
+
+const MAX_TITLE_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 10000;
+
+/**
+ * Files a new bug or feature request as the admin. Unlike a public submission
+ * it records no vote and no submitter e-mail, and sends no new-feedback mail:
+ * the admin is the one filing it. The per-app number is assigned by the
+ * feedback_assign_number trigger.
+ */
+export async function createFeedback(
+  serviceClient: SupabaseLike,
+  input: {
+    app: string;
+    type: string;
+    title: string;
+    description: string;
+    platform?: string;
+    status?: string;
+  }
+): Promise<ToolOutcome> {
+  const title = input.title.trim();
+  const description = input.description.trim();
+  if (title.length === 0) return { ok: false, error: 'Title must not be empty.' };
+  if (title.length > MAX_TITLE_LENGTH) {
+    return { ok: false, error: `Title too long (max ${MAX_TITLE_LENGTH} characters).` };
+  }
+  if (description.length === 0) return { ok: false, error: 'Description must not be empty.' };
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    return { ok: false, error: `Description too long (max ${MAX_DESCRIPTION_LENGTH} characters).` };
+  }
+
+  const { data: app, error: appError } = await serviceClient
+    .from('apps')
+    .select('id, name, slug, item_key, platforms')
+    .eq('slug', input.app)
+    .maybeSingle();
+  throwIfError(appError);
+  if (!app) return { ok: false, error: UNKNOWN_APP(input.app) };
+
+  // Mirrors validate_feedback_platform: a bug needs one of the app's
+  // platforms, a feature has none.
+  let platform: string | null = null;
+  if (input.type === 'bug') {
+    const appPlatforms: string[] = app.platforms ?? [];
+    const requested = input.platform?.trim();
+    if (requested) {
+      if (!appPlatforms.includes(requested)) {
+        return { ok: false, error: `Unknown platform '${requested}'. Allowed: ${appPlatforms.join(', ')}.` };
+      }
+      platform = requested;
+    } else if (appPlatforms.length === 1) {
+      platform = appPlatforms[0];
+    } else {
+      return { ok: false, error: `A bug needs a platform. Allowed: ${appPlatforms.join(', ')}.` };
+    }
+  }
+
+  const { data: created, error: insertError } = await serviceClient
+    .from('feedback')
+    .insert({
+      app_id: app.id,
+      type: input.type,
+      title,
+      description,
+      platform,
+      status: input.status ?? 'open',
+      vote_count: 0,
+      submitter_email: null,
+      notify_on_updates: false,
+    })
+    .select(FEEDBACK_COLUMNS)
+    .maybeSingle();
+  throwIfError(insertError);
+  if (!created) return { ok: false, error: 'The feedback item was not created.' };
+
+  return { ok: true, data: { feedback: withKey(app.item_key, created) } };
+}

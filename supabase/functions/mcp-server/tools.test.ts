@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { addComment, getFeedback, getVersionPlan, listApps, listFeedback, resolveFeedbackRef, resolveTargetPlatforms, setVersion, updateStatus } from './tools';
+import { FEEDBACK_COLUMNS, addComment, createFeedback, getFeedback, getVersionPlan, listApps, listFeedback, resolveFeedbackRef, resolveTargetPlatforms, setVersion, updateStatus } from './tools';
 
 type QueryResult = { data: unknown; error: Error | null };
 
@@ -636,5 +636,104 @@ describe('setVersion', () => {
 
     expect(outcome).toEqual({ ok: false, error: "No feedback item 'NOPE-1'. Use list_feedback to find valid keys." });
     expect(client.from).not.toHaveBeenCalledWith('release_groups');
+  });
+});
+
+describe('createFeedback', () => {
+  const APP_ROW = { ...APP, platforms: ['ios', 'android'] };
+  const CREATED = {
+    id: 'f-new', number: 762, type: 'bug', title: 'Sodium', description: 'Desc',
+    status: 'open', vote_count: 0, platform: 'ios', version: null, created_at: '2026-11-18T00:00:00Z',
+  };
+
+  function insertArgOf(builder: ReturnType<typeof createBuilder>): Record<string, unknown> {
+    return builder.calls.find(([m]: [string, unknown[]]) => m === 'insert')?.[1][0] as Record<string, unknown>;
+  }
+
+  it('inserts a bug on its platform and returns it with its key', async () => {
+    const appBuilder = createBuilder({ data: APP_ROW, error: null });
+    const feedbackBuilder = createBuilder({ data: CREATED, error: null });
+    const client = createClient({ apps: [appBuilder], feedback: [feedbackBuilder] });
+
+    const outcome = await createFeedback(client, {
+      app: 'my-app', type: 'bug', title: '  Sodium  ', description: ' Desc ', platform: 'ios',
+    });
+
+    expect(outcome).toEqual({ ok: true, data: { feedback: { ...CREATED, key: 'MYAPP-762' } } });
+    expect(insertArgOf(feedbackBuilder)).toEqual({
+      app_id: 'app-1', type: 'bug', title: 'Sodium', description: 'Desc', platform: 'ios',
+      status: 'open', vote_count: 0, submitter_email: null, notify_on_updates: false,
+    });
+    expect(selectArgOf(feedbackBuilder)).toBe(FEEDBACK_COLUMNS);
+  });
+
+  it('defaults a bug to the only platform of a single-platform app', async () => {
+    const appBuilder = createBuilder({ data: { ...APP, platforms: ['ios'] }, error: null });
+    const feedbackBuilder = createBuilder({ data: CREATED, error: null });
+    const client = createClient({ apps: [appBuilder], feedback: [feedbackBuilder] });
+
+    await createFeedback(client, { app: 'my-app', type: 'bug', title: 'T', description: 'D' });
+
+    expect(insertArgOf(feedbackBuilder).platform).toBe('ios');
+  });
+
+  it('requires a platform for a bug when the app has several', async () => {
+    const appBuilder = createBuilder({ data: APP_ROW, error: null });
+    const feedbackBuilder = createBuilder({ data: CREATED, error: null });
+    const client = createClient({ apps: [appBuilder], feedback: [feedbackBuilder] });
+
+    const outcome = await createFeedback(client, { app: 'my-app', type: 'bug', title: 'T', description: 'D' });
+
+    expect(outcome).toEqual({ ok: false, error: 'A bug needs a platform. Allowed: ios, android.' });
+    expect(feedbackBuilder.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a platform the app does not have', async () => {
+    const appBuilder = createBuilder({ data: APP_ROW, error: null });
+    const feedbackBuilder = createBuilder({ data: CREATED, error: null });
+    const client = createClient({ apps: [appBuilder], feedback: [feedbackBuilder] });
+
+    const outcome = await createFeedback(client, {
+      app: 'my-app', type: 'bug', title: 'T', description: 'D', platform: 'web',
+    });
+
+    expect(outcome).toEqual({ ok: false, error: "Unknown platform 'web'. Allowed: ios, android." });
+    expect(feedbackBuilder.insert).not.toHaveBeenCalled();
+  });
+
+  it('stores a feature without a platform and with the given status', async () => {
+    const appBuilder = createBuilder({ data: APP_ROW, error: null });
+    const feedbackBuilder = createBuilder({ data: { ...CREATED, type: 'feature', platform: null }, error: null });
+    const client = createClient({ apps: [appBuilder], feedback: [feedbackBuilder] });
+
+    await createFeedback(client, {
+      app: 'my-app', type: 'feature', title: 'T', description: 'D', platform: 'ios', status: 'planned',
+    });
+
+    expect(insertArgOf(feedbackBuilder)).toMatchObject({ type: 'feature', platform: null, status: 'planned' });
+  });
+
+  it('rejects empty and too-long title or description without querying', async () => {
+    const client = createClient({});
+    const base = { app: 'my-app', type: 'bug', title: 'T', description: 'D', platform: 'ios' };
+
+    expect(await createFeedback(client, { ...base, title: '   ' }))
+      .toEqual({ ok: false, error: 'Title must not be empty.' });
+    expect(await createFeedback(client, { ...base, title: 'x'.repeat(201) }))
+      .toEqual({ ok: false, error: 'Title too long (max 200 characters).' });
+    expect(await createFeedback(client, { ...base, description: '' }))
+      .toEqual({ ok: false, error: 'Description must not be empty.' });
+    expect(await createFeedback(client, { ...base, description: 'x'.repeat(10001) }))
+      .toEqual({ ok: false, error: 'Description too long (max 10000 characters).' });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('returns a helpful error for an unknown app slug', async () => {
+    const appBuilder = createBuilder({ data: null, error: null });
+    const client = createClient({ apps: [appBuilder] });
+
+    const outcome = await createFeedback(client, { app: 'nope', type: 'bug', title: 'T', description: 'D' });
+
+    expect(outcome).toEqual({ ok: false, error: "No app with slug 'nope'. Use list_apps to see valid slugs." });
   });
 });

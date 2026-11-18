@@ -7,6 +7,7 @@ import { z } from "npm:zod@^3.24.0";
 import { extractBearerToken, sha256Hex } from "./auth.ts";
 import {
   addComment,
+  createFeedback,
   getFeedback,
   getVersionPlan,
   listApps,
@@ -101,6 +102,23 @@ function buildServer(
       },
     },
     async ({ id }: { id: string }) => toToolResult(await getFeedback(dataClient, id))
+  );
+
+  server.registerTool(
+    "create_feedback",
+    {
+      description: "File a new bug or feature request as the admin (e.g. from a support e-mail). Records no vote and no submitter e-mail and sends no e-mail. A bug needs one of the app's platforms (defaults to the only one for a single-platform app); a feature has none. Check list_feedback for duplicates first. Returns the new item with its key.",
+      inputSchema: {
+        app: z.string().describe("App slug (see list_apps)"),
+        type: z.enum(FEEDBACK_TYPES).describe("'bug' or 'feature'"),
+        title: z.string().describe("Short title (max 200 characters)"),
+        description: z.string().describe("Full description (max 10000 characters)"),
+        platform: z.string().optional().describe("Platform for a bug, e.g. 'ios'; ignored for a feature"),
+        status: z.enum(FEEDBACK_STATUSES).optional().describe("Initial status, default 'open'"),
+      },
+    },
+    async (input: { app: string; type: string; title: string; description: string; platform?: string; status?: string }) =>
+      toToolResult(await createFeedback(serviceClient, input))
   );
 
   server.registerTool(
